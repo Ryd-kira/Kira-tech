@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Identité visuelle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#090D16;color:#F5F7FA;font-family:'Archivo',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#5B95FF;text-decoration:underline;text-underline-offset:3px}a:hover{color:#8DB5FF}
+h1,h2,h3{font-stretch:118%;font-weight:700;letter-spacing:-0.01em;line-height:1.1;margin:0}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:0 20px;border-radius:6px;font:inherit;font-weight:600;font-size:15px;text-decoration:none;cursor:pointer;border:1px solid transparent;white-space:nowrap}
+.btn-primary{background:#176BFF;color:#FFFFFF}.btn-primary:hover{background:#0F5BE0;color:#FFFFFF}
+.btn-ghost{background:transparent;color:#F5F7FA;border-color:#2E3D5A}.btn-ghost:hover{border-color:#5B95FF;color:#F5F7FA}
+.btn:focus-visible,.chip:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #5B95FF;outline-offset:2px}
+.chip{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid #2E3D5A;background:transparent;color:#F5F7FA;font:inherit;font-size:15px;cursor:pointer}
+.chip[aria-pressed="true"]{background:#176BFF;border-color:#176BFF;color:#FFFFFF}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.photo{background:#111A2B;border:1px dashed #2E3D5A;display:flex;align-items:center;justify-content:center;color:#AAB4C5;font-size:13px;border-radius:8px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#AAB4C5}
+.field{min-height:44px;border-radius:6px;border:1px solid #2E3D5A;background:#0E1524;color:#F5F7FA;font:inherit;font-size:15px;padding:0 12px}
+</style>
+</helmet>
+<div style="width: 1280px; padding: 64px; display: flex; flex-direction: column; gap: 56px">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 760px">
+<h1 style="font-size: 49px">Identité visuelle</h1>
+<p style="margin: 0; color: #AAB4C5; font-size: 17px">Noir et bleu électrique. Une seule famille, Archivo, élargie pour les titres et les chiffres des fiches techniques. Le bleu est réservé à ce qui se clique.</p>
+</div>
+<section style="display: flex; flex-direction: column; gap: 20px">
+<h2 style="font-size: 25px">Couleurs</h2>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px"><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #090D16; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Noir profond</div><div class="num" style="font-size: 13px; color: #AAB4C5">#090D16<br>Fond du site</div></div><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #172338; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Bleu nuit</div><div class="num" style="font-size: 13px; color: #AAB4C5">#172338<br>Cartes, panneaux</div></div><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #176BFF; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Bleu électrique</div><div class="num" style="font-size: 13px; color: #AAB4C5">#176BFF<br>Boutons et actions (texte blanc)</div></div><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #5B95FF; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Bleu lien</div><div class="num" style="font-size: 13px; color: #AAB4C5">#5B95FF<br>Liens et focus sur fond sombre</div></div><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #F5F7FA; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Blanc</div><div class="num" style="font-size: 13px; color: #AAB4C5">#F5F7FA<br>Texte principal</div></div><div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 88px; border-radius: 8px; background: #AAB4C5; border: 1px solid #26344F"></div><div style="font-weight: 600; font-size: 15px">Gris secondaire</div><div class="num" style="font-size: 13px; color: #AAB4C5">#AAB4C5<br>Texte secondaire</div></div></div>
+<div style="display: flex; gap: 32px; flex-wrap: wrap; font-size: 15px"><span class="badge" style="color: #3DD68C"><span class="dot" style="background: #3DD68C"></span>Disponible</span><span class="badge" style="color: #F5B83D"><span class="dot" style="background: #F5B83D"></span>Stock faible</span><span class="badge" style="color: #FF7A7A"><span class="dot" style="background: #FF7A7A"></span>Rupture de stock</span><span class="badge" style="color: #AAB4C5"><span class="dot" style="background: #AAB4C5"></span>Indisponible</span></div>
+<p style="margin: 0; font-size: 13px; color: #AAB4C5; max-width: 720px">Le bleu électrique #176BFF n'atteint pas 4,5:1 en texte sur le noir : il sert de fond aux boutons, avec un texte blanc pur (4,6:1). Les liens utilisent #5B95FF (6,1:1).</p>
+</section>
+<section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<h2 style="font-size: 25px">Typographie</h2>
+<div style="font-stretch: 118%; font-weight: 700; font-size: 49px; line-height: 1.05">Ordinateurs portables</div>
+<div style="font-stretch: 118%; font-weight: 700; font-size: 31px; line-height: 1.1">PC de bureau et gaming</div>
+<div style="font-stretch: 105%; font-weight: 650; font-size: 20px">Lenovo IdeaPad Slim 3 15</div>
+<p style="margin: 0; font-size: 16px; max-width: 60ch">Texte courant en 16 px, interligne 1,55, lignes de 60 à 75 caractères. Le texte reste aligné à gauche partout.</p>
+<div class="num" style="font-stretch: 112%; font-weight: 700; font-size: 31px">325 000 <span style="font-size: 16px; color: #AAB4C5">FCFA</span></div>
+<div class="num" style="font-size: 13px; color: #AAB4C5">Échelle : 13, 16, 20, 25, 31, 39, 49 px. Chiffres tabulaires pour les prix et les caractéristiques.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 20px">
+<h2 style="font-size: 25px">Commandes</h2>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><a class="btn btn-primary" href="#">Voir les ordinateurs</a><a class="btn btn-ghost" href="#">Réinitialiser les filtres</a></div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><a class="btn btn-primary" href="#"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5 5.3 15A8 8 0 1 1 9 18.7z"></path><path d="M9 10h6M9 13h4"></path></svg>Demander sur WhatsApp</a></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button class="chip" aria-pressed="true" type="button">Programmation</button><button class="chip" aria-pressed="false" type="button">Bureautique</button><button class="chip" aria-pressed="false" type="button">Graphisme</button></div>
+<label class="f">Rechercher un modèle<input class="field" type="search" placeholder="Ex. EliteBook 840"></label>
+<p style="margin: 0; font-size: 13px; color: #AAB4C5">Angles de 6 px pour les commandes, 10 px pour les cartes. Aucune forme pilule, aucun dégradé, aucune ombre décorative. Focus clavier : contour bleu de 2 px.</p>
+</div>
+</section>
+<section style="display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 48px; align-items: start">
+<div><article style="background: #172338; border: 1px solid #26344F; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0">
+<div class="photo" style="aspect-ratio: 4 / 3; border-radius: 0; border: 0; border-bottom: 1px solid #26344F">Photo produit</div>
+<div style="padding: 16px 16px 4px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: #AAB4C5"><span>Lenovo</span><span>Neuf</span></div>
+<h3 style="font-size: 18px; font-stretch: 105%; font-weight: 650; line-height: 1.25"><a href="Produit.dc.html" style="color: #F5F7FA; text-decoration: none">Lenovo IdeaPad Slim 3 15</a></h3>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 16px; border: 1px solid #26344F; border-radius: 6px">
+<div style="border-right: 1px solid #26344F; border-bottom: 1px solid #26344F"><div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div class="num" style="font-size: 22px; font-weight: 700; font-stretch: 112%; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">8<span style="font-size: 13px; font-weight: 600; color: #AAB4C5; margin-left: 4px">Go</span></div>
+<div style="font-size: 13px; color: #AAB4C5">Mémoire vive</div>
+</div></div>
+<div style="border-bottom: 1px solid #26344F"><div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div class="num" style="font-size: 22px; font-weight: 700; font-stretch: 112%; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">512<span style="font-size: 13px; font-weight: 600; color: #AAB4C5; margin-left: 4px">Go SSD</span></div>
+<div style="font-size: 13px; color: #AAB4C5">Stockage</div>
+</div></div>
+<div style="border-right: 1px solid #26344F; grid-column: span 2"><div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div class="num" style="font-size: 22px; font-weight: 700; font-stretch: 112%; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Ryzen 5 7520U<span style="font-size: 13px; font-weight: 600; color: #AAB4C5; margin-left: 4px"></span></div>
+<div style="font-size: 13px; color: #AAB4C5">Processeur</div>
+</div></div>
+</div>
+<div style="padding: 4px 16px 16px; margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap"><div class="num" style="font-size: 22px; font-weight: 700; font-stretch: 112%">325 000 <span style="font-size: 14px; color: #AAB4C5">FCFA</span></div><span class="badge" style="color: #F5B83D"><span class="dot" style="background: #F5B83D"></span>Stock faible</span></div>
+<a class="btn btn-ghost" href="#whatsapp" style="width: 100%"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5 5.3 15A8 8 0 1 1 9 18.7z"></path><path d="M9 10h6M9 13h4"></path></svg>Demander sur WhatsApp</a>
+</div>
+</article></div>
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 520px">
+<h2 style="font-size: 25px">La plaque produit</h2>
+<p style="margin: 0; color: #AAB4C5">L'élément signature du site. Chaque carte se lit comme la plaque signalétique d'une machine : les trois chiffres qui décident d'un achat (mémoire, stockage, processeur) sont plus grands que le nom.</p>
+<p style="margin: 0; color: #AAB4C5">Si le prix est masqué, la carte affiche « Prix sur demande » et garde le bouton WhatsApp. La disponibilité suit le réglage de l'administration.</p>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

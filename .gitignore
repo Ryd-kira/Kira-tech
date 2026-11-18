@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+dist/
+coverage/
+*.log
+.DS_Store
+.env.test
+__pycache__/
+*.pyc
+.env.production
+.vercel
+__pycache__/
+*.pyc
+.env.production
+.vercel

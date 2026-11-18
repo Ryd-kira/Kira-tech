@@ -1,0 +1,18 @@
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-18T15:50:00Z"},"title":"Kira Tech et Solution : identité visuelle et maquettes","launch":{"view":"canvas"},"pages":[],
+"boards":{
+"Main.dc.html":{"x":0,"y":0,"w":1280,"h":1960,"title":"Identité visuelle"},
+"Accueil.dc.html":{"x":1360,"y":0,"w":1440,"h":2500,"title":"Accueil","expand":"fill"},
+"Catalogue.dc.html":{"x":2880,"y":0,"w":1440,"h":1900,"title":"Catalogue","expand":"fill","is_interactive":true},
+"Produit.dc.html":{"x":4400,"y":0,"w":1440,"h":1700,"title":"Fiche produit","expand":"fill"},
+"Mobile-Catalogue.dc.html":{"x":0,"y":2900,"w":390,"h":1500,"title":"Catalogue, téléphone"},
+"Mobile-Produit.dc.html":{"x":470,"y":2900,"w":390,"h":1600,"title":"Fiche produit, téléphone"},
+"Caisse.dc.html":{"x":940,"y":2900,"w":1440,"h":900,"title":"Administration : caisse","expand":"fill","is_interactive":true},
+"Vente.dc.html":{"x":2460,"y":2900,"w":1440,"h":1200,"title":"Administration : fiche vente","expand":"fill"}
+},
+"order":["Main.dc.html","Accueil.dc.html","Catalogue.dc.html","Produit.dc.html","Mobile-Catalogue.dc.html","Mobile-Produit.dc.html","Caisse.dc.html","Vente.dc.html"],
+"notes":{
+"t1":{"x":0,"y":-320,"text":"Site public","kind":"title1","maxW":5840},
+"t2":{"x":0,"y":2580,"text":"Téléphone et administration","kind":"title1","maxW":3900},
+"n1":{"x":5920,"y":0,"w":360,"text":"Produits, prix et budgets affichés sur ces maquettes sont des exemples pour juger la mise en page. Les vrais viendront de la base. Les textes entre crochets attendent vos informations (adresses, horaires). Aucune photo n'est générée : les cadres « Photo produit » recevront vos photos.","fill":"yellow"}
+},
+"designSystems":[]}

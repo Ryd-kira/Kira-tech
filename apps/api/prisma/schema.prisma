@@ -1,0 +1,1174 @@
+// Kira Tech et Solution : schéma de données MVP (v1.2, proposition à valider)
+//
+// Conventions
+// - Identifiants : UUIDv7 (ordonnés dans le temps, non énumérables).
+// - Montants : entiers en FCFA (le franc CFA n'a pas de subdivision utilisée).
+//   Les coûts moyens pondérés gardent 2 décimales (Decimal(14,2)).
+// - Dates : timestamptz, stockées en UTC.
+// - Aucune suppression physique des opérations commerciales : les tables
+//   d'historique sont protégées par des triggers (voir migration SQL "invariants").
+// - Les invariants que Prisma ne sait pas exprimer (CHECK, append-only,
+//   "exactement une référence") sont dans prisma/sql/invariants.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  GESTIONNAIRE
+}
+
+enum ProductCondition {
+  NEW
+  USED
+}
+
+enum PerformanceLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  GAMING
+}
+
+enum ProductStatus {
+  DRAFT // en préparation, invisible publiquement
+  PUBLISHED // visible sur le site
+  ARCHIVED // retiré du catalogue, conservé pour l'historique
+}
+
+enum PublicStockDisplay {
+  LABEL_ONLY // "Disponible", "Stock faible", "Rupture de stock"
+  LABEL_AND_QUANTITY // idem + quantité disponible
+}
+
+enum ContactMessageStatus {
+  NEW
+  IN_PROGRESS
+  HANDLED
+  ARCHIVED
+}
+
+enum LocationType {
+  STORE // boutique (Cotonou, Calavi)
+  WAREHOUSE // entrepôt
+  TRANSIT // emplacement virtuel "En transit"
+}
+
+enum StockBucket {
+  ON_HAND // stock physique vendable
+  RESERVED // part du stock physique bloquée par une réservation
+  ALLOCATED // part du stock physique affectée à une vente validée non remise
+  QUARANTINE // retour en attente de contrôle (hors stock vendable)
+  DAMAGED // endommagé / non réintégrable (hors stock vendable)
+}
+
+enum MovementType {
+  PURCHASE_RECEIPT
+  RESERVATION
+  RESERVATION_RELEASE // annulation ou expiration
+  RESERVATION_TO_SALE // conversion : réservé -> affecté (pas de double comptage)
+  SALE_ALLOCATION
+  SALE_ALLOCATION_RELEASE // annulation d'une vente non remise
+  SALE_HANDOVER // remise au client en boutique : sortie physique
+  DISPATCH_TO_TRANSIT // remise au transporteur : boutique -> En transit
+  DELIVERY_COMPLETED // réception confirmée : sortie du transit
+  DELIVERY_RETURNED // échec de livraison : En transit -> boutique
+  CUSTOMER_RETURN
+  EXCHANGE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  DAMAGE
+  LOSS
+  QUARANTINE_RELEASE // contrôle terminé : quarantaine -> vendable ou endommagé
+  TRANSFER_OUT
+  TRANSFER_IN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+enum SaleChannel {
+  IN_STORE
+  DELIVERY
+}
+
+enum SaleStatus {
+  VALIDATED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  RECORDED
+  VOIDED // saisie erronée annulée avec motif ; la ligne reste
+}
+
+enum RefundStatus {
+  RECORDED
+  VOIDED
+}
+
+enum FulfillmentMode {
+  PICKUP
+  DELIVERY
+}
+
+enum FulfillmentStatus {
+  PREPARING // en préparation
+  READY // prête (à retirer / à expédier)
+  IN_TRANSIT // en cours de livraison
+  COMPLETED // remise au client / livrée
+  FAILED // livraison échouée
+  RETURNED_TO_STORE // retour en boutique
+  CANCELLED
+}
+
+enum PurchaseStatus {
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum TransferStatus {
+  PENDING
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+enum ReturnReason {
+  CUSTOMER_RETURN
+  DEFECTIVE
+  EXCHANGE
+}
+
+enum ReturnCondition {
+  RESTOCKED // remis en stock
+  QUARANTINE // en quarantaine
+  DAMAGED // endommagé
+  NOT_REINTEGRABLE // non réintégrable
+}
+
+enum SerialStatus {
+  IN_STOCK
+  RESERVED
+  ALLOCATED
+  IN_TRANSIT
+  DELIVERED
+  QUARANTINE
+  DAMAGED
+  LOST
+}
+
+enum DocumentType {
+  SALE
+  RESERVATION
+  PAYMENT
+  REFUND
+  PURCHASE
+  RECEIPT
+  TRANSFER
+  FULFILLMENT
+  RETURN
+}
+
+// ─────────────────────────────────────────────────────────────
+// Administration et sécurité
+// ─────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  name               String
+  email              String    @unique // stocké en minuscules (normalisé à l'écriture)
+  passwordHash       String // bcrypt, coût >= 12
+  role               AdminRole
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime? @db.Timestamptz(3)
+  lastLoginAt        DateTime? @db.Timestamptz(3)
+  createdById        String?   @db.Uuid // null uniquement pour le premier SUPER_ADMIN (script)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  createdBy           AdminUser?           @relation("AdminCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAdmins       AdminUser[]          @relation("AdminCreatedBy")
+  sessions            AdminSession[]
+  resetTokens         PasswordResetToken[] @relation("ResetTokenOwner")
+  issuedResets        PasswordResetToken[] @relation("ResetTokenIssuer")
+  auditLogs           AuditLog[]
+  stockMovements      StockMovement[]
+  statusChanges       StatusChange[]
+  handledMessages     ContactMessage[]     @relation("MsgHandledBy")
+  createdCustomers    Customer[]           @relation("CustomerCreatedBy")
+  createdTransfers    StockTransfer[]      @relation("TransferCreatedBy")
+  createdPurchases    Purchase[]           @relation("PurchaseCreatedBy")
+  receivedReceipts    PurchaseReceipt[]    @relation("ReceiptReceivedBy")
+  createdReservations StockReservation[]   @relation("ReservationCreatedBy")
+  validatedSales      Sale[]               @relation("SaleValidatedBy")
+  recordedPayments    Payment[]            @relation("PaymentRecordedBy")
+  recordedRefunds     Refund[]             @relation("RefundRecordedBy")
+  createdFulfillments SaleFulfillment[]    @relation("FulfillmentCreatedBy")
+  fulfillmentEvents   FulfillmentEvent[]   @relation("FulfillmentEventBy")
+  receivedReturns     Return[]             @relation("ReturnReceivedBy")
+  idempotencyKeys     IdempotencyKey[]     @relation("IdemKeyOwner")
+
+  @@map("admin_users")
+}
+
+// Sessions côté serveur : un compte désactivé est déconnecté immédiatement,
+// ce qu'un JWT longue durée ne permet pas.
+model AdminSession {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  adminUserId String    @db.Uuid
+  tokenHash   String    @unique // SHA-256 du jeton opaque placé dans le cookie HttpOnly
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt  DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  adminUserId String    @db.Uuid
+  tokenHash   String    @unique
+  issuedById  String?   @db.Uuid
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  adminUser AdminUser  @relation("ResetTokenOwner", fields: [adminUserId], references: [id], onDelete: Cascade)
+  issuedBy  AdminUser? @relation("ResetTokenIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([adminUserId])
+  @@map("password_reset_tokens")
+}
+
+// Journal d'audit : append-only (trigger). entityType/entityId est volontairement
+// polymorphe : c'est un journal, pas une relation d'intégrité.
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  adminUserId String?  @db.Uuid // null : action système ou tentative de connexion inconnue
+  action      String // ex. "sale.validate", "product.price.update", "auth.login.failed"
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  reason      String?
+  ip          String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@index([adminUserId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// Anti double soumission : chaque POST commercial porte un en-tête Idempotency-Key.
+model IdempotencyKey {
+  adminUserId    String   @db.Uuid
+  key            String
+  endpoint       String
+  requestHash    String
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  adminUser AdminUser @relation("IdemKeyOwner", fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@id([adminUserId, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}
+
+// Numérotation sans trou par type et par année (verrou de ligne dans la transaction).
+model DocumentCounter {
+  type      DocumentType
+  year      Int
+  lastValue Int          @default(0)
+
+  @@id([type, year])
+  @@map("document_counters")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Catalogue public
+// ─────────────────────────────────────────────────────────────
+
+model SiteSetting {
+  id                        Int                @id @default(1) // ligne unique (CHECK id = 1)
+  companyName               String             @default("Kira Tech et Solution")
+  // Coordonnées : volontairement vides tant que le propriétaire ne les a pas fournies.
+  whatsappNumber            String? // format E.164, ex. +229XXXXXXXX
+  phone                     String?
+  email                     String?
+  openingHours              String?
+  facebookUrl               String?
+  instagramUrl              String?
+  tiktokUrl                 String?
+  // Textes rédigés par l'entreprise depuis l'administration (aucun texte par défaut).
+  aboutText                 String?
+  servicesIntro             String?
+  publicStockDisplay        PublicStockDisplay @default(LABEL_ONLY)
+  reservationDefaultHours   Int                @default(48)
+  allowBackorder            Boolean            @default(false) // vente au-delà du stock : désactivée
+  maxDiscountPercentAdmin   Int                @default(10)
+  maxDiscountPercentManager Int                @default(0)
+  updatedAt                 DateTime           @updatedAt @db.Timestamptz(3)
+
+  @@map("site_settings")
+}
+
+model Category {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model UsageTag {
+  id        String @id @default(uuid(7)) @db.Uuid
+  slug      String @unique // bureautique, etudes, programmation, graphisme, cybersecurite
+  label     String
+  sortOrder Int    @default(0)
+
+  products ProductUsage[]
+
+  @@map("usage_tags")
+}
+
+model ProductUsage {
+  productId  String @db.Uuid
+  usageTagId String @db.Uuid
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  usageTag UsageTag @relation(fields: [usageTagId], references: [id], onDelete: Restrict)
+
+  @@id([productId, usageTagId])
+  @@index([usageTagId])
+  @@map("product_usages")
+}
+
+model Product {
+  id                    String            @id @default(uuid(7)) @db.Uuid
+  slug                  String            @unique
+  sku                   String            @unique // référence
+  name                  String
+  brand                 String
+  categoryId            String            @db.Uuid
+  description           String
+  condition             ProductCondition
+  status                ProductStatus     @default(DRAFT)
+  processor             String?
+  ramGb                 Int?
+  storageGb             Int?
+  storageType           String? // SSD, HDD, NVMe
+  gpu                   String?
+  screenSizeInch        Decimal?          @db.Decimal(4, 1)
+  resolution            String?
+  operatingSystem       String?
+  performanceLevel      PerformanceLevel?
+  warrantyMonths        Int?
+  // Prix public (addendum 1)
+  price                 Int // FCFA, toujours enregistré même si masqué
+  showPrice             Boolean           @default(true)
+  // Disponibilité (addendum 1) : la quantité n'est PAS une colonne ici.
+  // stockQuantity = somme des StockLevel vendables, calculée : aucune incohérence possible.
+  lowStockThreshold     Int               @default(2)
+  isManuallyUnavailable Boolean           @default(false)
+  isFeatured            Boolean           @default(false)
+  isSerialized          Boolean           @default(false) // suivi individuel par numéro de série
+  // Coût moyen pondéré (CMP), recalculé à chaque réception. Jamais exposé publiquement.
+  averageCost           Decimal           @default(0) @db.Decimal(14, 2)
+  createdAt             DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime          @updatedAt @db.Timestamptz(3)
+
+  category         Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images           ProductImage[]
+  usages           ProductUsage[]
+  stockLevels      StockLevel[]
+  stockMovements   StockMovement[]
+  reservationItems ReservationItem[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  transferItems    StockTransferItem[]
+  serialNumbers    ProductSerialNumber[]
+  contactMessages  ContactMessage[]
+
+  @@index([categoryId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([status, price])
+  @@index([status, isFeatured])
+  @@index([ramGb])
+  @@index([storageGb])
+  @@index([performanceLevel])
+  @@map("products")
+}
+
+model ProductImage {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  productId          String   @db.Uuid
+  cloudinaryPublicId String   @unique
+  url                String
+  width              Int
+  height             Int
+  alt                String
+  sortOrder          Int      @default(0) // 0 = image principale
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, sortOrder])
+  @@map("product_images")
+}
+
+model ContactMessage {
+  id          String               @id @default(uuid(7)) @db.Uuid
+  name        String
+  phone       String
+  email       String?
+  subject     String
+  message     String
+  productId   String?              @db.Uuid
+  status      ContactMessageStatus @default(NEW)
+  handledById String?              @db.Uuid
+  handledAt   DateTime?            @db.Timestamptz(3)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  handledBy AdminUser? @relation("MsgHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("contact_messages")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tiers
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String
+  phone       String // E.164 ; non unique (téléphone partagé possible), indexé
+  email       String?
+  address     String?
+  city        String?
+  district    String? // quartier
+  notes       String?
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  reservations  StockReservation[]
+  sales         Sale[]
+  serialNumbers ProductSerialNumber[]
+
+  createdBy AdminUser @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([phone])
+  @@index([name])
+  @@map("customers")
+}
+
+model Supplier {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  purchases     Purchase[]
+  serialNumbers ProductSerialNumber[]
+
+  @@map("suppliers")
+}
+
+model PaymentMethod {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  code      String  @unique // CASH, MOBILE_MONEY, BANK_TRANSFER, CARD, + codes ajoutés
+  label     String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  payments Payment[]
+  refunds  Refund[]
+
+  @@map("payment_methods")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Stocks
+// ─────────────────────────────────────────────────────────────
+
+model StockLocation {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  code         String       @unique // COTONOU, CALAVI, ENTREPOT, TRANSIT
+  name         String
+  type         LocationType
+  city         String?
+  address      String?
+  phone        String?
+  openingHours String? // vide : les horaires généraux s'appliquent
+  isSellable   Boolean      @default(true) // TRANSIT et entrepôt : false
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+
+  stockLevels   StockLevel[]
+  movements     StockMovement[]
+  reservations  StockReservation[]
+  sales         Sale[]
+  purchases     Purchase[]
+  receipts      PurchaseReceipt[]
+  transfersOut  StockTransfer[]       @relation("TransferSource")
+  transfersIn   StockTransfer[]       @relation("TransferDestination")
+  returns       Return[]
+  serialNumbers ProductSerialNumber[]
+  fulfillments  SaleFulfillment[]
+
+  @@map("stock_locations")
+}
+
+// Une ligne par (produit, emplacement). Ces compteurs ne sont modifiés QUE par le
+// service de stock, dans la même transaction que la ligne StockMovement.
+// disponible = onHand - reserved - allocated   (vue SQL stock_availability)
+// CHECK : reserved + allocated <= onHand ; tous >= 0.
+model StockLevel {
+  productId  String   @db.Uuid
+  locationId String   @db.Uuid
+  onHand     Int      @default(0)
+  reserved   Int      @default(0)
+  allocated  Int      @default(0)
+  quarantine Int      @default(0)
+  damaged    Int      @default(0)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@id([productId, locationId])
+  @@index([locationId])
+  @@map("stock_levels")
+}
+
+// Grand livre du stock : append-only. Une opération métier = une ou plusieurs
+// lignes partageant operationId (ex. conversion réservation -> vente :
+// RESERVED -q et ALLOCATED +q).
+model StockMovement {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  operationId       String       @db.Uuid
+  type              MovementType
+  productId         String       @db.Uuid
+  locationId        String       @db.Uuid
+  bucket            StockBucket
+  quantityBefore    Int
+  quantityDelta     Int
+  quantityAfter     Int
+  reason            String?
+  documentRef       String? // référence documentaire libre (bon, facture fournisseur...)
+  adminUserId       String       @db.Uuid
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  // Transaction associée : références typées (pas de polymorphisme)
+  saleId            String?      @db.Uuid
+  reservationId     String?      @db.Uuid
+  purchaseReceiptId String?      @db.Uuid
+  transferId        String?      @db.Uuid
+  fulfillmentId     String?      @db.Uuid
+  returnId          String?      @db.Uuid
+  serialNumberId    String?      @db.Uuid
+
+  product      Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location     StockLocation        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  adminUser    AdminUser            @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+  sale         Sale?                @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  reservation  StockReservation?    @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  receipt      PurchaseReceipt?     @relation(fields: [purchaseReceiptId], references: [id], onDelete: Restrict)
+  transfer     StockTransfer?       @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  fulfillment  SaleFulfillment?     @relation(fields: [fulfillmentId], references: [id], onDelete: Restrict)
+  return       Return?              @relation(fields: [returnId], references: [id], onDelete: Restrict)
+  serialNumber ProductSerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+
+  @@index([productId, createdAt(sort: Desc)])
+  @@index([locationId, createdAt(sort: Desc)])
+  @@index([operationId])
+  @@index([createdAt(sort: Desc)])
+  @@index([saleId])
+  @@index([reservationId])
+  @@index([purchaseReceiptId])
+  @@index([transferId])
+  @@index([fulfillmentId])
+  @@index([returnId])
+  @@index([serialNumberId])
+  @@index([adminUserId])
+  @@map("stock_movements")
+}
+
+model StockTransfer {
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  number                String         @unique
+  sourceLocationId      String         @db.Uuid
+  destinationLocationId String         @db.Uuid
+  status                TransferStatus @default(PENDING)
+  reason                String?
+  createdById           String         @db.Uuid
+  shippedAt             DateTime?      @db.Timestamptz(3)
+  receivedAt            DateTime?      @db.Timestamptz(3)
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  source        StockLocation       @relation("TransferSource", fields: [sourceLocationId], references: [id], onDelete: Restrict)
+  destination   StockLocation       @relation("TransferDestination", fields: [destinationLocationId], references: [id], onDelete: Restrict)
+  items         StockTransferItem[]
+  movements     StockMovement[]
+  statusChanges StatusChange[]
+
+  createdBy AdminUser @relation("TransferCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([sourceLocationId])
+  @@index([destinationLocationId])
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String @id @default(uuid(7)) @db.Uuid
+  transferId String @db.Uuid
+  productId  String @db.Uuid
+  quantity   Int
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([transferId, productId])
+  @@index([productId])
+  @@map("stock_transfer_items")
+}
+
+model ProductSerialNumber {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  productId      String       @db.Uuid
+  serialNumber   String
+  status         SerialStatus @default(IN_STOCK)
+  locationId     String?      @db.Uuid // null une fois livré
+  supplierId     String?      @db.Uuid
+  receiptItemId  String?      @db.Uuid
+  unitCost       Decimal?     @db.Decimal(14, 2)
+  receivedAt     DateTime     @db.Timestamptz(3)
+  saleItemId     String?      @db.Uuid
+  customerId     String?      @db.Uuid
+  warrantyEndsAt DateTime?    @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
+
+  product          Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location         StockLocation?       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  supplier         Supplier?            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  receiptItem      PurchaseReceiptItem? @relation(fields: [receiptItemId], references: [id], onDelete: Restrict)
+  saleItem         SaleItem?            @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  customer         Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  movements        StockMovement[]
+  fulfillmentItems FulfillmentItem[]
+  returnItems      ReturnItem[]
+
+  @@unique([productId, serialNumber])
+  @@index([serialNumber])
+  @@index([status, locationId])
+  @@index([saleItemId])
+  @@index([customerId])
+  @@map("product_serial_numbers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Achats
+// ─────────────────────────────────────────────────────────────
+
+model Purchase {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  number            String         @unique
+  supplierId        String         @db.Uuid
+  supplierReference String? // référence du document fournisseur
+  purchaseDate      DateTime       @db.Timestamptz(3)
+  locationId        String         @db.Uuid // emplacement de réception prévu
+  status            PurchaseStatus @default(ORDERED)
+  additionalCosts   Int            @default(0) // transport, douane... réparti au prorata
+  itemsTotal        Int
+  totalAmount       Int // itemsTotal + additionalCosts (CHECK)
+  notes             String?
+  createdById       String         @db.Uuid
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  supplier      Supplier          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location      StockLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items         PurchaseItem[]
+  receipts      PurchaseReceipt[]
+  statusChanges StatusChange[]
+
+  createdBy AdminUser @relation("PurchaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([supplierId])
+  @@index([status, purchaseDate(sort: Desc)])
+  @@index([purchaseDate(sort: Desc)])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  purchaseId       String  @db.Uuid
+  productId        String  @db.Uuid
+  quantityOrdered  Int
+  quantityReceived Int     @default(0) // maintenu par le service de réception (CHECK <= commandé)
+  unitCost         Int // prix d'achat unitaire FCFA
+  landedUnitCost   Decimal @db.Decimal(14, 2) // coût unitaire incluant la quote-part des frais
+
+  purchase     Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  receiptItems PurchaseReceiptItem[]
+
+  @@unique([purchaseId, productId])
+  @@index([productId])
+  @@map("purchase_items")
+}
+
+// Réception effective : seul événement qui fait entrer du stock (addendum 2 §4).
+model PurchaseReceipt {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  number       String   @unique
+  purchaseId   String   @db.Uuid
+  locationId   String   @db.Uuid
+  receivedAt   DateTime @db.Timestamptz(3)
+  receivedById String   @db.Uuid
+  notes        String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  purchase  Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  location  StockLocation         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items     PurchaseReceiptItem[]
+  movements StockMovement[]
+
+  receivedBy AdminUser @relation("ReceiptReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptItem {
+  id             String @id @default(uuid(7)) @db.Uuid
+  receiptId      String @db.Uuid
+  purchaseItemId String @db.Uuid
+  quantity       Int
+
+  receipt       PurchaseReceipt       @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  purchaseItem  PurchaseItem          @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
+  serialNumbers ProductSerialNumber[]
+
+  @@unique([receiptId, purchaseItemId])
+  @@index([purchaseItemId])
+  @@map("purchase_receipt_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Réservations
+// ─────────────────────────────────────────────────────────────
+
+model StockReservation {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  number      String            @unique
+  customerId  String?           @db.Uuid
+  locationId  String            @db.Uuid
+  status      ReservationStatus @default(PENDING)
+  expiresAt   DateTime          @db.Timestamptz(3)
+  notes       String?
+  createdById String            @db.Uuid
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+
+  customer      Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  location      StockLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items         ReservationItem[]
+  sale          Sale?
+  payments      Payment[]
+  movements     StockMovement[]
+  statusChanges StatusChange[]
+
+  createdBy AdminUser @relation("ReservationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, expiresAt]) // balayage des expirations
+  @@index([customerId])
+  @@index([locationId])
+  @@map("stock_reservations")
+}
+
+model ReservationItem {
+  id            String @id @default(uuid(7)) @db.Uuid
+  reservationId String @db.Uuid
+  productId     String @db.Uuid
+  quantity      Int
+  quotedPrice   Int? // prix annoncé au client, informatif
+
+  reservation StockReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([reservationId, productId])
+  @@index([productId])
+  @@map("reservation_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ventes, paiements, remises au client
+// ─────────────────────────────────────────────────────────────
+
+model Sale {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  number           String      @unique // immuable (trigger)
+  channel          SaleChannel
+  locationId       String      @db.Uuid
+  customerId       String?     @db.Uuid // null : client occasionnel
+  reservationId    String?     @unique @db.Uuid
+  exchangeReturnId String?     @unique @db.Uuid // vente née d'un échange
+  status           SaleStatus  @default(VALIDATED)
+  subtotal         Int
+  discountTotal    Int         @default(0)
+  deliveryFee      Int         @default(0)
+  total            Int // subtotal - discountTotal + deliveryFee (CHECK)
+  notes            String?
+  validatedById    String      @db.Uuid
+  validatedAt      DateTime    @default(now()) @db.Timestamptz(3)
+  cancelledAt      DateTime?   @db.Timestamptz(3)
+  cancelReason     String?
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(3)
+
+  location       StockLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  customer       Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  reservation    StockReservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  exchangeReturn Return?           @relation("ExchangeSale", fields: [exchangeReturnId], references: [id], onDelete: Restrict)
+  items          SaleItem[]
+  payments       Payment[]
+  refunds        Refund[]
+  fulfillments   SaleFulfillment[]
+  returns        Return[]          @relation("ReturnedSale")
+  movements      StockMovement[]
+  statusChanges  StatusChange[]
+
+  validatedBy AdminUser @relation("SaleValidatedBy", fields: [validatedById], references: [id], onDelete: Restrict)
+
+  @@index([validatedAt(sort: Desc)])
+  @@index([status, validatedAt(sort: Desc)])
+  @@index([locationId, validatedAt(sort: Desc)])
+  @@index([channel, validatedAt(sort: Desc)])
+  @@index([customerId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id                  String  @id @default(uuid(7)) @db.Uuid
+  saleId              String  @db.Uuid
+  productId           String  @db.Uuid
+  productName         String // instantané du libellé
+  quantity            Int
+  unitPrice           Int // prix appliqué au moment de la vente
+  discountAmount      Int     @default(0)
+  lineTotal           Int // quantity * unitPrice - discountAmount (CHECK)
+  unitCostSnapshot    Decimal @db.Decimal(14, 2) // CMP au moment de la vente, pour la marge
+  quantityAllocated   Int // affecté sur le stock
+  quantityBackordered Int     @default(0) // seulement si allowBackorder (addendum 2 §5)
+  quantityHandedOver  Int     @default(0)
+  quantityCancelled   Int     @default(0) // libéré par annulation avant remise
+  quantityReturned    Int     @default(0)
+
+  sale             Sale                  @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  product          Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  serialNumbers    ProductSerialNumber[]
+  fulfillmentItems FulfillmentItem[]
+  returnItems      ReturnItem[]
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+// Chaque encaissement est une ligne distincte. Le statut de paiement d'une vente
+// (impayée, acompte, partiellement payée, soldée) est CALCULÉ, jamais stocké.
+model Payment {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  reference         String        @unique
+  saleId            String?       @db.Uuid
+  reservationId     String?       @db.Uuid // acompte versé sur une réservation
+  amount            Int
+  paymentMethodId   String        @db.Uuid
+  externalReference String? // ex. ID de transaction Mobile Money déclaré
+  status            PaymentStatus @default(RECORDED)
+  receivedAt        DateTime      @db.Timestamptz(3)
+  recordedById      String        @db.Uuid
+  voidedAt          DateTime?     @db.Timestamptz(3)
+  voidReason        String?
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+
+  sale          Sale?             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  reservation   StockReservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  paymentMethod PaymentMethod     @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  refunds       Refund[]
+  statusChanges StatusChange[]
+
+  recordedBy AdminUser @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([reservationId])
+  @@index([receivedAt(sort: Desc)])
+  @@map("payments")
+}
+
+// Remboursement lié au paiement d'origine (règle critique 8). Ne touche jamais au stock.
+model Refund {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  reference       String       @unique
+  paymentId       String       @db.Uuid
+  saleId          String?      @db.Uuid // null : remboursement d'un acompte de réservation annulée
+  returnId        String?      @db.Uuid
+  amount          Int
+  paymentMethodId String       @db.Uuid
+  reason          String
+  status          RefundStatus @default(RECORDED)
+  refundedAt      DateTime     @db.Timestamptz(3)
+  recordedById    String       @db.Uuid
+  voidedAt        DateTime?    @db.Timestamptz(3)
+  voidReason      String?
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  sale          Sale?         @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  return        Return?       @relation(fields: [returnId], references: [id], onDelete: Restrict)
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+
+  recordedBy AdminUser @relation("RefundRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([saleId])
+  @@index([refundedAt(sort: Desc)])
+  @@map("refunds")
+}
+
+// Remise effective au client (addendum 3 §C). Une vente peut avoir plusieurs
+// remises (remise partielle). Le mode DELIVERY porte les champs de livraison
+// (fusion des modèles Delivery / SaleFulfillment pour éviter un doublon).
+model SaleFulfillment {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  number         String            @unique
+  saleId         String            @db.Uuid
+  mode           FulfillmentMode
+  status         FulfillmentStatus @default(PREPARING)
+  locationId     String            @db.Uuid // emplacement d'où part la marchandise
+  // Livraison
+  recipientName  String?
+  recipientPhone String?
+  address        String?
+  city           String?
+  district       String?
+  courierName    String? // livreur ou prestataire
+  courierPhone   String?
+  scheduledAt    DateTime?         @db.Timestamptz(3)
+  shippedAt      DateTime?         @db.Timestamptz(3)
+  // Preuve de remise / livraison
+  completedAt    DateTime?         @db.Timestamptz(3)
+  receivedByName String? // nom du réceptionnaire
+  proofNote      String?
+  proofAssetId   String? // pièce justificative Cloudinary en accès restreint (type authenticated)
+  observations   String?
+  createdById    String            @db.Uuid
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+
+  sale      Sale               @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  location  StockLocation      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items     FulfillmentItem[]
+  events    FulfillmentEvent[]
+  movements StockMovement[]
+
+  createdBy AdminUser @relation("FulfillmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([mode, status])
+  @@map("sale_fulfillments")
+}
+
+model FulfillmentItem {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  fulfillmentId  String  @db.Uuid
+  saleItemId     String  @db.Uuid
+  quantity       Int
+  serialNumberId String? @db.Uuid
+
+  fulfillment  SaleFulfillment      @relation(fields: [fulfillmentId], references: [id], onDelete: Restrict)
+  saleItem     SaleItem             @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  serialNumber ProductSerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+
+  @@index([fulfillmentId])
+  @@index([saleItemId])
+  @@index([serialNumberId])
+  @@map("fulfillment_items")
+}
+
+model FulfillmentEvent {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  fulfillmentId String             @db.Uuid
+  fromStatus    FulfillmentStatus?
+  toStatus      FulfillmentStatus
+  note          String?
+  adminUserId   String             @db.Uuid
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+
+  fulfillment SaleFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Restrict)
+
+  adminUser AdminUser @relation("FulfillmentEventBy", fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([fulfillmentId, createdAt])
+  @@map("fulfillment_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Retours et échanges
+// ─────────────────────────────────────────────────────────────
+
+model Return {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  number       String       @unique
+  saleId       String       @db.Uuid
+  reason       ReturnReason
+  locationId   String       @db.Uuid // emplacement de réception physique
+  notes        String?
+  receivedById String       @db.Uuid
+  receivedAt   DateTime     @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+
+  sale          Sale            @relation("ReturnedSale", fields: [saleId], references: [id], onDelete: Restrict)
+  location      StockLocation   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items         ReturnItem[]
+  refunds       Refund[]
+  exchangeSale  Sale?           @relation("ExchangeSale")
+  movements     StockMovement[]
+  statusChanges StatusChange[]
+
+  receivedBy AdminUser @relation("ReturnReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([receivedAt(sort: Desc)])
+  @@map("returns")
+}
+
+model ReturnItem {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  returnId       String          @db.Uuid
+  saleItemId     String          @db.Uuid
+  quantity       Int
+  condition      ReturnCondition
+  serialNumberId String?         @db.Uuid
+
+  return       Return               @relation(fields: [returnId], references: [id], onDelete: Restrict)
+  saleItem     SaleItem             @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  serialNumber ProductSerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+
+  @@index([returnId])
+  @@index([saleItemId])
+  @@map("return_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Historique des changements d'état (addendum 3 §G)
+// Exactement une référence non nulle (CHECK). Append-only.
+// ─────────────────────────────────────────────────────────────
+
+model StatusChange {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  fromStatus    String?
+  toStatus      String
+  reason        String?
+  adminUserId   String   @db.Uuid
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  reservationId String?  @db.Uuid
+  saleId        String?  @db.Uuid
+  paymentId     String?  @db.Uuid
+  purchaseId    String?  @db.Uuid
+  transferId    String?  @db.Uuid
+  returnId      String?  @db.Uuid
+
+  adminUser   AdminUser         @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+  reservation StockReservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  sale        Sale?             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  payment     Payment?          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  purchase    Purchase?         @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  transfer    StockTransfer?    @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  return      Return?           @relation(fields: [returnId], references: [id], onDelete: Restrict)
+
+  @@index([reservationId])
+  @@index([saleId])
+  @@index([paymentId])
+  @@index([purchaseId])
+  @@index([transferId])
+  @@index([returnId])
+  @@index([adminUserId])
+  @@map("status_changes")
+}
+
+enum ServiceIcon {
+  WRENCH
+  CPU
+  PHONE
+  SEARCH
+  CHAT
+}
+
+// Prestations affichées sur le site (maintenance, réparation…), saisies par l'entreprise.
+model SiteService {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  title       String
+  description String
+  icon        ServiceIcon @default(WRENCH)
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@index([isActive, sortOrder])
+  @@map("site_services")
+}

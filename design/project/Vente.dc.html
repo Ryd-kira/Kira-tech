@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fiche vente</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#090D16;color:#F5F7FA;font-family:'Archivo',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#5B95FF;text-decoration:underline;text-underline-offset:3px}a:hover{color:#8DB5FF}
+h1,h2,h3{font-stretch:118%;font-weight:700;letter-spacing:-0.01em;line-height:1.1;margin:0}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:0 20px;border-radius:6px;font:inherit;font-weight:600;font-size:15px;text-decoration:none;cursor:pointer;border:1px solid transparent;white-space:nowrap}
+.btn-primary{background:#176BFF;color:#FFFFFF}.btn-primary:hover{background:#0F5BE0;color:#FFFFFF}
+.btn-ghost{background:transparent;color:#F5F7FA;border-color:#2E3D5A}.btn-ghost:hover{border-color:#5B95FF;color:#F5F7FA}
+.btn:focus-visible,.chip:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #5B95FF;outline-offset:2px}
+.chip{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid #2E3D5A;background:transparent;color:#F5F7FA;font:inherit;font-size:15px;cursor:pointer}
+.chip[aria-pressed="true"]{background:#176BFF;border-color:#176BFF;color:#FFFFFF}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.photo{background:#111A2B;border:1px dashed #2E3D5A;display:flex;align-items:center;justify-content:center;color:#AAB4C5;font-size:13px;border-radius:8px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#AAB4C5}
+.field{min-height:44px;border-radius:6px;border:1px solid #2E3D5A;background:#0E1524;color:#F5F7FA;font:inherit;font-size:15px;padding:0 12px}
+
+body{background:#F5F7FA;color:#090D16}
+a{color:#0F5BE0}a:hover{color:#0A47B3}
+.btn-ghost{color:#090D16;border-color:#C9D1DD;background:#FFFFFF}.btn-ghost:hover{border-color:#176BFF;color:#090D16}
+.chip{color:#090D16;border-color:#C9D1DD;background:#FFFFFF}
+.field{background:#FFFFFF;border-color:#C9D1DD;color:#090D16}
+label.f{color:#4A5568}
+.panel{background:#FFFFFF;border:1px solid #DDE3EC;border-radius:10px}
+.muted{color:#4A5568}
+.side a{display:block;padding:9px 14px;border-radius:6px;color:#AAB4C5;text-decoration:none;font-size:14px}
+.side a:hover{color:#F5F7FA;background:#172338}
+.side a[aria-current="page"]{background:#172338;color:#F5F7FA;box-shadow:inset 3px 0 0 #176BFF}
+td,th{padding:12px 14px;border-bottom:1px solid #E6EAF0;text-align:left;font-size:14px}
+th{font-weight:600;color:#4A5568;font-size:13px}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 1200px">
+<nav class="side" aria-label="Administration" style="flex: 1 1 220px; max-width: 240px; background: #090D16; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; min-height: 100%">
+<div style="padding: 4px 14px 18px; color: #F5F7FA"><div style="font-stretch: 125%; font-weight: 800; font-size: 17px">KIRA TECH</div><div style="font-size: 12px; color: #AAB4C5">Administration</div></div>
+<a href="#" >Vue générale</a><a href="#" >Produits</a><a href="#" >Stocks</a><a href="#" >Mouvements de stock</a><a href="#" >Achats</a><a href="#" aria-current="page">Ventes</a><a href="#" >Transactions</a><a href="#" >Paiements</a><a href="#" >Livraisons</a><a href="#" >Clients</a><a href="#" >Fournisseurs</a><a href="#" >Retours et remboursements</a><a href="#" >Administrateurs</a><a href="#" >Journal d'activité</a><a href="#" >Rapports</a>
+<div style="margin-top: auto; padding: 16px 14px 0; border-top: 1px solid #1C2840; font-size: 13px; color: #AAB4C5">Compte : Admin Cotonou<br><a href="#" style="display: inline; padding: 0; color: #5B95FF">Se déconnecter</a></div>
+</nav>
+<main style="flex: 999 1 640px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="Fil d'Ariane" style="font-size: 14px"><a href="#">Ventes</a> <span class="muted">/ V-2026-000123</span></nav>
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div><h1 class="num" style="font-size: 31px">Vente V-2026-000123</h1><p class="muted" style="margin: 4px 0 0">Vente avec livraison, boutique de Cotonou. Client : [nom du client], [téléphone]</p></div>
+<a class="btn btn-ghost" href="#">Annuler la vente</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section class="panel" style="flex: 1 1 280px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="font-size: 15px; font-stretch: 100%; font-weight: 600" class="muted">Validation commerciale</h2>
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; font-stretch: 108%"><span class="dot" style="background: #0B7A47; width: 10px; height: 10px"></span>Validée</div>
+<p class="muted" style="margin: 0; font-size: 14px">Le 18/11/2026 à 09 h 42 par Admin Cotonou Convertie depuis la réservation R-2026-000031.</p>
+<a class="btn btn-ghost" href="#" style="margin-top: 6px; align-self: flex-start">Imprimer le ticket</a></section>
+<section class="panel" style="flex: 1 1 280px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="font-size: 15px; font-stretch: 100%; font-weight: 600" class="muted">Paiement</h2>
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; font-stretch: 108%"><span class="dot" style="background: #8A5A00; width: 10px; height: 10px"></span>Partiellement payée</div>
+<dl class="num" style="margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px"><dt class="muted">Total</dt><dd style="margin: 0">300 000 FCFA</dd><dt class="muted">Encaissé</dt><dd style="margin: 0">100 000 FCFA</dd><dt style="font-weight: 600">Reste à payer</dt><dd style="margin: 0; font-weight: 700">200 000 FCFA</dd></dl>
+<div role="img" aria-label="33 % encaissé" style="height: 6px; background: #E6EAF0; border-radius: 3px"><div style="width: 33%; height: 6px; background: #176BFF; border-radius: 3px"></div></div>
+<a class="btn btn-primary" href="#" style="margin-top: 6px">Enregistrer un paiement</a></section>
+<section class="panel" style="flex: 1 1 280px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="font-size: 15px; font-stretch: 100%; font-weight: 600" class="muted">Remise au client</h2>
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; font-stretch: 108%"><span class="dot" style="background: #176BFF; width: 10px; height: 10px"></span>En cours de livraison</div>
+<p class="muted" style="margin: 0; font-size: 14px">Remise au livreur le 18/11/2026 à 11 h 20. Stock passé de Cotonou à En transit.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px"><a class="btn btn-primary" href="#">Confirmer la réception</a><a class="btn btn-ghost" href="#">Signaler un échec</a></div></section>
+</div>
+<section class="panel" style="overflow-x: auto"><h2 style="font-size: 18px; font-stretch: 105%; padding: 18px 20px 6px">Articles</h2>
+<table class="num" style="width: 100%; border-collapse: collapse"><thead><tr><th>Produit</th><th>N° de série</th><th style="text-align: right">Qté</th><th style="text-align: right">Prix appliqué</th><th style="text-align: right">Remise</th><th style="text-align: right">Total</th></tr></thead>
+<tbody><tr><td>Dell Latitude 5420</td><td>[n° de série]</td><td style="text-align: right">1</td><td style="text-align: right">285 000</td><td style="text-align: right">0</td><td style="text-align: right">285 000</td></tr>
+<tr><td>Sacoche 15,6 pouces</td><td class="muted">Non suivi</td><td style="text-align: right">1</td><td style="text-align: right">12 000</td><td style="text-align: right">2 000</td><td style="text-align: right">10 000</td></tr>
+<tr><td colspan="5" class="muted">Frais de livraison</td><td style="text-align: right">5 000</td></tr>
+<tr><td colspan="5" style="font-weight: 700">Total</td><td style="text-align: right; font-weight: 700">300 000 FCFA</td></tr></tbody></table></section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section class="panel" style="flex: 1 1 360px; min-width: 0; overflow-x: auto"><h2 style="font-size: 18px; font-stretch: 105%; padding: 18px 20px 6px">Paiements</h2>
+<table class="num" style="width: 100%; border-collapse: collapse"><thead><tr><th>Référence</th><th>Date</th><th>Moyen</th><th style="text-align: right">Montant</th></tr></thead>
+<tbody><tr><td>P-2026-000118</td><td>16/11/2026</td><td>Mobile Money<br><span class="muted" style="font-size: 12px">Réf. déclarée [n° opération]</span></td><td style="text-align: right">100 000</td></tr></tbody></table></section>
+<section class="panel" style="flex: 1 1 360px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px"><h2 style="font-size: 18px; font-stretch: 105%">Livraison L-2026-000057</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px"><dt class="muted">Destinataire</dt><dd style="margin: 0">[nom du client]</dd><dt class="muted">Adresse</dt><dd style="margin: 0">Calavi, quartier [à saisir]</dd><dt class="muted">Livreur</dt><dd style="margin: 0">[Nom du livreur]</dd><dt class="muted">Prévue le</dt><dd class="num" style="margin: 0">18/11/2026</dd></dl></section>
+</div>
+<section class="panel" style="overflow-x: auto"><h2 style="font-size: 18px; font-stretch: 105%; padding: 18px 20px 6px">Historique</h2>
+<table style="width: 100%; border-collapse: collapse"><thead><tr><th>Date</th><th>Élément</th><th>Changement</th><th>Par</th></tr></thead><tbody><tr><td class="num" style="white-space: nowrap">18/11 11:20</td><td>Livraison</td><td>Prête à expédier vers En cours de livraison</td><td>Admin Cotonou</td></tr><tr><td class="num" style="white-space: nowrap">18/11 10:05</td><td>Livraison</td><td>En préparation vers Prête à expédier</td><td>Gestionnaire Cotonou</td></tr><tr><td class="num" style="white-space: nowrap">18/11 09:42</td><td>Vente</td><td>Validée</td><td>Admin Cotonou</td></tr><tr><td class="num" style="white-space: nowrap">18/11 09:42</td><td>Réservation R-2026-000031</td><td>Confirmée vers Convertie en vente</td><td>Admin Cotonou</td></tr><tr><td class="num" style="white-space: nowrap">16/11 16:10</td><td>Paiement P-2026-000118</td><td>Enregistré : 100 000 FCFA, Mobile Money</td><td>Admin Cotonou</td></tr></tbody></table></section>
+</main></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
