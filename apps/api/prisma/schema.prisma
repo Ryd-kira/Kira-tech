@@ -404,6 +404,11 @@ model Product {
   operatingSystem       String?
   performanceLevel      PerformanceLevel?
   warrantyMonths        Int?
+  color                 String?
+  isTouchscreen         Boolean           @default(false)
+  conditionNote         String? // précision sur l'état : « Très propre »
+  batteryNote           String? // autonomie ou état de la batterie
+  extraSpecs            Json              @default("[]") // [{ label, value }] : clavier, caméras, sécurité...
   // Prix public (addendum 1)
   price                 Int // FCFA, toujours enregistré même si masqué
   showPrice             Boolean           @default(true)

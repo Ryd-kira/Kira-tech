@@ -47,7 +47,11 @@ export default function Product() {
     ['Stockage', p.storageGb && `${storageLabel(p.storageGb)}${p.storageType ? ` ${p.storageType}` : ''}`],
     ['Carte graphique', p.gpu], ['Écran', screenLabel(p.screenSizeInch)], ['Résolution', p.resolution],
     ['Système', p.operatingSystem], ['Performance', PERFORMANCE[p.performanceLevel]],
-    ['Usages recommandés', p.usages.map((u) => u.label).join(', ')], ['État', conditionLabel(p.condition)],
+    ['Couleur', p.color], ['Écran tactile', p.isTouchscreen ? 'Oui' : null],
+    ...(p.extraSpecs ?? []).map((x) => [x.label, x.value]),
+    ['Autonomie', p.batteryNote],
+    ['Usages recommandés', p.usages.map((u) => u.label).join(', ')],
+    ['État', p.conditionNote ? `${conditionLabel(p.condition)}, ${p.conditionNote.charAt(0).toLowerCase()}${p.conditionNote.slice(1)}` : conditionLabel(p.condition)],
     ['Garantie', p.warrantyMonths ? `${p.warrantyMonths} mois` : null],
   ].filter(([, v]) => v);
   const message = productMessage(p);

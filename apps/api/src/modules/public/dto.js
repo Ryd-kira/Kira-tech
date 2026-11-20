@@ -32,6 +32,8 @@ export function productCardView(p, status, settings) {
     gpu: p.gpu,
     screenSizeInch: p.screenSizeInch == null ? null : Number(p.screenSizeInch),
     performanceLevel: p.performanceLevel,
+    color: p.color,
+    isTouchscreen: p.isTouchscreen,
     usages: p.usages.map((u) => ({ slug: u.usageTag.slug, label: u.usageTag.label })),
     // Prix masqué : le champ est absent, pas seulement vide.
     ...(p.showPrice ? { price: p.price } : {}),
@@ -50,6 +52,9 @@ export function productDetailView(p, status, settings) {
     resolution: p.resolution,
     operatingSystem: p.operatingSystem,
     warrantyMonths: p.warrantyMonths,
+    conditionNote: p.conditionNote,
+    batteryNote: p.batteryNote,
+    extraSpecs: p.extraSpecs,
     images: p.images.map((img) => imageView(img, 1200)),
   };
 }

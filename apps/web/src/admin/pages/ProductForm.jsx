@@ -4,6 +4,7 @@ import { api } from '../../lib/api.js';
 import { useApi } from '../../lib/useApi.js';
 import { useAuth } from '../auth.jsx';
 import { ConfirmDialog, Field, fieldErrors, Notice, PageHeader, STATUS_LABELS, STOCK_COLORS } from '../ui.jsx';
+import { applyFiche, FIELD_LABELS, parseFiche } from '../../lib/parseFiche.js';
 import ProductImages from './ProductImages.jsx';
 
 const EMPTY = {
@@ -11,7 +12,10 @@ const EMPTY = {
   processor: '', ramGb: '', storageGb: '', storageType: 'SSD', gpu: '', screenSizeInch: '', resolution: '', operatingSystem: '',
   performanceLevel: '', warrantyMonths: '', price: '', showPrice: true, lowStockThreshold: 2,
   isManuallyUnavailable: false, isFeatured: false, isSerialized: false, usageSlugs: [],
+  color: '', isTouchscreen: false, conditionNote: '', batteryNote: '', extraSpecs: [],
 };
+const SPEC_LABELS = ['Format', 'Clavier', 'Caméras', 'Sécurité', 'Cœurs / threads', 'Type de mémoire', 'Stockage', 'Écran', 'Ports', 'Connectivité', 'Accessoires inclus', 'Poids'];
+const CONDITION_NOTES = ['Comme neuf', 'Très propre', 'Bon état', 'État correct, traces d’usage'];
 const RAM = [4, 8, 12, 16, 24, 32, 64];
 const STORAGE = [[128, '128 Go'], [256, '256 Go'], [512, '512 Go'], [1024, '1 To'], [2048, '2 To']];
 const NUMERIC = ['ramGb', 'storageGb', 'screenSizeInch', 'warrantyMonths', 'price', 'lowStockThreshold'];
@@ -31,6 +35,7 @@ function toPayload(form, { canPrice, initial }) {
     if (!canPrice && (k === 'price' || k === 'showPrice')) continue;
     if (NUMERIC.includes(k)) out[k] = v === '' || v == null ? null : Number(String(v).replace(',', '.').replace(/\s/g, ''));
     else if (k === 'performanceLevel') out[k] = v || null;
+    else if (k === 'extraSpecs') out[k] = (v ?? []).map((x) => ({ label: x.label.trim(), value: x.value.trim() })).filter((x) => x.label && x.value);
     else out[k] = v;
   }
   if (out.price == null) delete out.price;
@@ -55,6 +60,8 @@ export default function ProductForm() {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const errs = fieldErrors(error);
+  const [ficheText, setFicheText] = useState('');
+  const [parsed, setParsed] = useState(null);
 
   async function load() {
     const p = await api(`/admin/products/${id}`);
@@ -84,6 +91,21 @@ export default function ProductForm() {
       }
     } catch (err) { setError(err); } finally { setBusy(false); }
   }
+  function analyseFiche() {
+    const r = parseFiche(ficheText);
+    const known = new Set((tags?.items ?? []).map((t) => t.slug));
+    if (r.fields.usageSlugs) r.fields.usageSlugs = r.fields.usageSlugs.filter((x) => known.has(x));
+    if (r.fields.usageSlugs?.length === 0) delete r.fields.usageSlugs;
+    setParsed(r);
+  }
+  function applyParsed() {
+    setForm((f) => applyFiche(f, parsed));
+    setParsed(null); setFicheText('');
+    setSaved('Fiche appliquée au formulaire : vérifiez les champs, puis enregistrez.');
+  }
+  const setSpec = (i, k) => (e) => setForm((f) => ({ ...f, extraSpecs: f.extraSpecs.map((s, j) => (j === i ? { ...s, [k]: e.target.value } : s)) }));
+  const addSpec = () => setForm((f) => ({ ...f, extraSpecs: [...f.extraSpecs, { label: '', value: '' }] }));
+  const removeSpec = (i) => setForm((f) => ({ ...f, extraSpecs: f.extraSpecs.filter((_, j) => j !== i) }));
   async function remove() {
     setBusy(true);
     try { await api(`/admin/products/${id}`, { method: 'DELETE' }); navigate('/admin/produits', { replace: true }); }
@@ -93,6 +115,10 @@ export default function ProductForm() {
   if (!isNew && !product && !error) return <p className="muted">Chargement…</p>;
   if (!isNew && !product && error) return <Notice kind="error">{error.message}</Notice>;
 
+  const ramOptions = [...new Set([...RAM, Number(form.ramGb) || null].filter(Boolean))].sort((a, b) => a - b);
+  const storageOptions = !form.storageGb || STORAGE.some(([v]) => v === Number(form.storageGb))
+    ? STORAGE : [...STORAGE, [Number(form.storageGb), `${form.storageGb} Go`]].sort((a, b) => a[0] - b[0]);
+  const shown = (k, v) => (typeof v === 'boolean' ? 'Oui' : k === 'usageSlugs' ? v.map((x) => tags?.items.find((t) => t.slug === x)?.label ?? x).join(', ') : k === 'condition' ? (v === 'NEW' ? 'Neuf' : 'Occasion') : String(v));
   const input = (k, props = {}) => <input className="field" value={form[k] ?? ''} onChange={set(k)} aria-invalid={!!errs[k]} {...props} />;
   const check = (k, label, hint) => (
     <label className="flex items-start gap-2.5 text-[15px] cursor-pointer">
@@ -114,6 +140,32 @@ export default function ProductForm() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] items-start">
         <div className="flex flex-col gap-5 min-w-0">
+          <details className="panel p-5" open={isNew}>
+            <summary className="cursor-pointer text-lg font-semibold">Remplir depuis une fiche produit</summary>
+            <div className="mt-4 flex flex-col gap-3">
+              <p className="muted m-0 text-sm">Collez la fiche (une caractéristique par ligne, les emojis sont acceptés). Rien n’est enregistré : vous vérifiez d’abord ce qui est reconnu.</p>
+              <textarea className="field !min-h-[160px] !py-2.5" value={ficheText} onChange={(e) => { setFicheText(e.target.value); setParsed(null); }} aria-label="Fiche produit à analyser" />
+              <div><button type="button" className="btn btn-ghost" disabled={!ficheText.trim()} onClick={analyseFiche}>Analyser la fiche</button></div>
+              {parsed && (
+                <div className="flex flex-col gap-3" aria-live="polite">
+                  {Object.keys(parsed.fields).length + parsed.extraSpecs.length === 0 && <Notice kind="error">Rien n’a été reconnu dans ce texte.</Notice>}
+                  {Object.keys(parsed.fields).length > 0 && (
+                    <ul className="m-0 pl-5 text-[15px]">{Object.entries(parsed.fields).map(([k, v]) => <li key={k}><strong>{FIELD_LABELS[k] ?? k}</strong> : {shown(k, v)}</li>)}</ul>
+                  )}
+                  {parsed.extraSpecs.length > 0 && (
+                    <div><p className="m-0 mb-1 text-sm font-semibold">Caractéristiques supplémentaires</p>
+                      <ul className="m-0 pl-5 text-[15px]">{parsed.extraSpecs.map((x) => <li key={x.label}><strong>{x.label}</strong> : {x.value}</li>)}</ul></div>
+                  )}
+                  {parsed.unmatched.length > 0 && (
+                    <Notice>Lignes non reconnues, à saisir à la main si besoin : {parsed.unmatched.join(' · ')}</Notice>
+                  )}
+                  <p className="muted m-0 text-sm">Les champs déjà remplis ne sont pas écrasés (sauf l’état). À compléter vous-même : référence, catégorie, prix, taille d’écran, niveau de performance, photos.</p>
+                  <div><button type="button" className="btn btn-primary" onClick={applyParsed} disabled={Object.keys(parsed.fields).length + parsed.extraSpecs.length === 0}>Appliquer au formulaire</button></div>
+                </div>
+              )}
+            </div>
+          </details>
+
           <section className="panel p-5 grid gap-4 sm:grid-cols-2" aria-labelledby="s-id">
             <h2 id="s-id" className="text-lg sm:col-span-2">Identification</h2>
             <div className="sm:col-span-2"><Field label="Nom" error={errs.name}>{input('name', { required: true, maxLength: 160 })}</Field></div>
@@ -125,6 +177,13 @@ export default function ProductForm() {
               </select>
             </Field>
             <Field label="État"><select className="field" value={form.condition} onChange={set('condition')}><option value="NEW">Neuf</option><option value="USED">Occasion</option></select></Field>
+            {form.condition === 'USED' && (
+              <Field label="Précision sur l’état" error={errs.conditionNote} hint="Affichée sur la fiche : « Occasion, très propre »">
+                {input('conditionNote', { maxLength: 120, list: 'condition-notes' })}
+                <datalist id="condition-notes">{CONDITION_NOTES.map((n) => <option key={n} value={n} />)}</datalist>
+              </Field>
+            )}
+            <Field label="Couleur" error={errs.color}>{input('color', { maxLength: 40, placeholder: 'Ex. Platine (gris argenté)' })}</Field>
             <div className="sm:col-span-2"><Field label="Description" error={errs.description}>
               <textarea className="field !min-h-[120px] !py-2.5" value={form.description} onChange={set('description')} maxLength={5000} />
             </Field></div>
@@ -134,11 +193,11 @@ export default function ProductForm() {
             <h2 id="s-spec" className="text-lg sm:col-span-2">Caractéristiques</h2>
             <div className="sm:col-span-2"><Field label="Processeur" error={errs.processor}>{input('processor', { placeholder: 'Ex. Core i5-1235U' })}</Field></div>
             <Field label="Mémoire vive (Go)" error={errs.ramGb}>
-              <select className="field" value={form.ramGb} onChange={set('ramGb')}><option value="">Non renseignée</option>{RAM.map((r) => <option key={r} value={r}>{r} Go</option>)}</select>
+              <select className="field" value={form.ramGb} onChange={set('ramGb')}><option value="">Non renseignée</option>{ramOptions.map((r) => <option key={r} value={r}>{r} Go</option>)}</select>
             </Field>
             <Field label="Stockage" error={errs.storageGb}>
               <div className="flex gap-2">
-                <select className="field" value={form.storageGb} onChange={set('storageGb')}><option value="">Non renseigné</option>{STORAGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                <select className="field" value={form.storageGb} onChange={set('storageGb')}><option value="">Non renseigné</option>{storageOptions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                 <select className="field !w-28" value={form.storageType ?? ''} onChange={set('storageType')} aria-label="Type de stockage"><option value="SSD">SSD</option><option value="HDD">HDD</option><option value="NVMe">NVMe</option><option value="">Autre</option></select>
               </div>
             </Field>
@@ -152,6 +211,23 @@ export default function ProductForm() {
               </select>
             </Field>
             <Field label="Garantie (mois)" error={errs.warrantyMonths}>{input('warrantyMonths', { inputMode: 'numeric' })}</Field>
+            <Field label="Autonomie / batterie" error={errs.batteryNote} hint="Une mesure vaut mieux qu’un adjectif (ex. « 85 % de santé »)">{input('batteryNote', { maxLength: 120 })}</Field>
+            <div className="sm:col-span-2">{check('isTouchscreen', 'Écran tactile')}</div>
+            <fieldset className="sm:col-span-2 border-0 p-0 m-0">
+              <legend className="label mb-2">Autres caractéristiques</legend>
+              <datalist id="spec-labels">{SPEC_LABELS.map((l) => <option key={l} value={l} />)}</datalist>
+              {errs.extraSpecs && <p className="text-sm text-[#E5484D] m-0 mb-2">{errs.extraSpecs}</p>}
+              <div className="flex flex-col gap-2">
+                {form.extraSpecs.map((x, i) => (
+                  <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]">
+                    <input className="field" list="spec-labels" maxLength={60} placeholder="Nom (ex. Clavier)" aria-label={`Caractéristique ${i + 1} : nom`} value={x.label} onChange={setSpec(i, 'label')} />
+                    <input className="field" maxLength={160} placeholder="Valeur" aria-label={`Caractéristique ${i + 1} : valeur`} value={x.value} onChange={setSpec(i, 'value')} />
+                    <button type="button" className="btn btn-ghost" onClick={() => removeSpec(i)} aria-label={`Retirer la caractéristique ${i + 1}`}>Retirer</button>
+                  </div>
+                ))}
+                <div><button type="button" className="btn btn-ghost" onClick={addSpec} disabled={form.extraSpecs.length >= 20}>Ajouter une caractéristique</button></div>
+              </div>
+            </fieldset>
             <fieldset className="sm:col-span-2 border-0 p-0 m-0">
               <legend className="label mb-2">Usages recommandés</legend>
               <div className="flex flex-wrap gap-2">

@@ -37,6 +37,11 @@ const productFields = {
   operatingSystem: nullableText(60),
   performanceLevel: z.enum(['BASIC', 'INTERMEDIATE', 'ADVANCED', 'GAMING']).nullable().optional(),
   warrantyMonths: z.number().int().min(0).max(120).nullable().optional(),
+  color: nullableText(40),
+  isTouchscreen: z.boolean(),
+  conditionNote: nullableText(120),
+  batteryNote: nullableText(120),
+  extraSpecs: z.array(z.object({ label: z.string().trim().min(1).max(60), value: z.string().trim().min(1).max(160) }).strict()).max(20),
   price: z.number().int().min(0).max(100_000_000),
   showPrice: z.boolean(),
   lowStockThreshold: z.number().int().min(0).max(10000),
@@ -55,6 +60,8 @@ const createSchema = z.object({
   isManuallyUnavailable: productFields.isManuallyUnavailable.default(false),
   isFeatured: productFields.isFeatured.default(false),
   isSerialized: productFields.isSerialized.default(false),
+  isTouchscreen: productFields.isTouchscreen.default(false),
+  extraSpecs: productFields.extraSpecs.default([]),
   usageSlugs: productFields.usageSlugs.default([]),
 }).strict();
 const updateSchema = z.object(productFields).partial().strict()
