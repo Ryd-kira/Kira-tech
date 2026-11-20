@@ -1,4 +1,4 @@
-import { can } from '../auth/permissions.js';
+import { can, ensurePermissionsFresh } from '../auth/permissions.js';
 import { errors, AppError } from '../lib/errors.js';
 import { COOKIE_NAME, resolveSession } from '../services/sessions.js';
 
@@ -7,7 +7,7 @@ const ALLOWED_WHEN_PASSWORD_CHANGE = new Set(['/api/v1/admin/auth/me', '/api/v1/
 
 export async function requireAuth(req, res, next) {
   try {
-    const session = await resolveSession(req.cookies?.[COOKIE_NAME]);
+    const [session] = await Promise.all([resolveSession(req.cookies?.[COOKIE_NAME]), ensurePermissionsFresh()]);
     if (!session) throw errors.unauthenticated();
     req.session = session;
     req.admin = session.adminUser;
@@ -22,5 +22,11 @@ export async function requireAuth(req, res, next) {
 
 export const requirePermission = (permission) => (req, res, next) => {
   if (!req.admin || !can(req.admin.role, permission)) return next(errors.forbidden());
+  next();
+};
+
+// Au moins une des permissions.
+export const requireAnyPermission = (...permissions) => (req, res, next) => {
+  if (!req.admin || !permissions.some((p) => can(req.admin.role, p))) return next(errors.forbidden());
   next();
 };

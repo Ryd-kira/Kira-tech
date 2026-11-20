@@ -58,3 +58,19 @@ export function productDetailView(p, status, settings) {
     images: p.images.map((img) => imageView(img, 1200)),
   };
 }
+
+// Premier paragraphe de la description, coupé proprement : texte rédigé par l'entreprise.
+export function summaryOf(description, max = 220) {
+  const first = String(description ?? '').split(/\n\s*\n/)[0].replace(/\s+/g, ' ').trim();
+  if (first.length <= max) return first;
+  const cut = first.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 30)).replace(/[\s,;:.]+$/, '')}…`;
+}
+
+export function showcaseView(p, status, settings) {
+  return {
+    ...productCardView(p, status, settings),
+    image: imageView(p.images[0], 1000),
+    summary: summaryOf(p.description),
+  };
+}

@@ -15,3 +15,6 @@ export const errors = {
   invalidTransition: (message) => new AppError(409, 'INVALID_TRANSITION', message),
   conflict: (code, message) => new AppError(409, code, message),
 };
+
+// Suppression refusée par une clé étrangère (onDelete: Restrict) : l'élément a un historique.
+export const isReferenced = (err) => err?.code === 'P2003' || /foreign key constraint/i.test(String(err?.message));

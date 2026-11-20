@@ -19,6 +19,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // Permissions modifiées par le super administrateur : menus à jour au retour sur l'onglet.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible' && state.status === 'in') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refresh, state.status]);
 
   const login = async (email, password) => {
     const me = await api('/admin/auth/login', { method: 'POST', body: { email, password } });

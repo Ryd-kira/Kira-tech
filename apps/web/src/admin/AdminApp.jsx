@@ -11,6 +11,7 @@ import Products from './pages/Products.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import Settings from './pages/Settings.jsx';
 import Users from './pages/Users.jsx';
+import Roles from './pages/Roles.jsx';
 import Pos from './pages/Pos.jsx';
 import AuditLog from './pages/AuditLog.jsx';
 import Reports from './pages/Reports.jsx';
@@ -35,7 +36,7 @@ function Guard({ children }) {
 
 function Allowed({ permission, children }) {
   const { can } = useAuth();
-  return can(permission) ? children : <p className="muted">Cette page n'est pas accessible avec votre rôle.</p>;
+  return [].concat(permission).some(can) ? children : <p className="muted">Cette page n'est pas accessible avec votre rôle.</p>;
 }
 
 export default function AdminApp() {
@@ -79,7 +80,8 @@ export default function AdminApp() {
             <Route path="series/:id" element={<Allowed permission="stock:read"><SerialDetail /></Allowed>} />
             <Route path="categories" element={<Allowed permission="categories:write"><Categories /></Allowed>} />
             <Route path="messages" element={<Allowed permission="messages:manage"><Messages /></Allowed>} />
-            <Route path="parametres" element={<Allowed permission="settings:content"><Settings /></Allowed>} />
+            <Route path="parametres" element={<Allowed permission={['settings:content', 'settings:sensitive', 'branding:write', 'stores:manage']}><Settings /></Allowed>} />
+            <Route path="roles" element={<Allowed permission="roles:manage"><Roles /></Allowed>} />
             <Route path="administrateurs" element={<Allowed permission="users:manage"><Users /></Allowed>} />
             <Route path="*" element={<p className="muted">Page introuvable.</p>} />
           </Route>

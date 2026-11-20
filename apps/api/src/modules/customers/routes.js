@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { errors } from '../../lib/errors.js';
+import { errors, isReferenced } from '../../lib/errors.js';
 import { pageQuery, pageResult } from '../../lib/pagination.js';
 import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
@@ -61,6 +61,41 @@ router.patch('/:id', async (req, res) => {
     if (!(await tx.customer.findUnique({ where: { id } }))) throw errors.notFound('Client');
     const next = await tx.customer.update({ where: { id }, data });
     await writeAudit(tx, { adminUserId: req.admin.id, action: 'customer.update', entityType: 'Customer', entityId: id, newValues: Object.keys(data), ip: req.ip });
+    return next;
+  });
+  res.json(c);
+});
+
+// Suppression : seulement un client sans achat, réservation ni numéro de série.
+// Avec un historique, l'anonymisation retire ses données personnelles et garde les ventes.
+router.delete('/:id', requirePermission('customers:delete'), async (req, res) => {
+  const { id } = parse(z.object({ id: z.uuid() }), req.params);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const c = await tx.customer.findUnique({ where: { id } });
+      if (!c) throw errors.notFound('Client');
+      await tx.customer.delete({ where: { id } });
+      await writeAudit(tx, { adminUserId: req.admin.id, action: 'customer.delete', entityType: 'Customer', entityId: id, oldValues: { name: c.name }, ip: req.ip });
+    });
+  } catch (err) {
+    if (isReferenced(err)) {
+      throw errors.conflict('CUSTOMER_HAS_HISTORY', "Ce client a des achats ou des réservations : il ne peut pas être supprimé sans perdre la traçabilité. Vous pouvez l'anonymiser.");
+    }
+    throw err;
+  }
+  res.status(204).end();
+});
+
+export const ANONYMOUS = { name: 'Client anonymisé', phone: '0000000000', email: null, address: null, city: null, district: null, notes: null };
+
+router.post('/:id/anonymize', requirePermission('customers:delete'), async (req, res) => {
+  const { id } = parse(z.object({ id: z.uuid() }), req.params);
+  const c = await prisma.$transaction(async (tx) => {
+    const before = await tx.customer.findUnique({ where: { id } });
+    if (!before) throw errors.notFound('Client');
+    const next = await tx.customer.update({ where: { id }, data: ANONYMOUS });
+    // Le journal garde la trace de l'action, pas les données retirées.
+    await writeAudit(tx, { adminUserId: req.admin.id, action: 'customer.anonymize', entityType: 'Customer', entityId: id, ip: req.ip });
     return next;
   });
   res.json(c);

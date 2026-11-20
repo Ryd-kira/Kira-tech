@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import Icon from '../components/Icon.jsx';
+import { useSettings } from '../lib/settings.jsx';
 import { useAuth } from './auth.jsx';
 
 // Les rubriques apparaissent au fil des lots ; chacune n'est visible que si le rôle y a droit.
@@ -23,9 +24,10 @@ const NAV = [
   { to: '/admin/categories', label: 'Catégories', perm: 'categories:write' },
   { to: '/admin/messages', label: 'Messages', perm: 'messages:manage' },
   { to: '/admin/administrateurs', label: 'Administrateurs', perm: 'users:manage' },
+  { to: '/admin/roles', label: 'Rôles et permissions', perm: 'roles:manage' },
   { to: '/admin/journal', label: "Journal d'activité", perm: 'audit:read' },
   { to: '/admin/rapports', label: 'Rapports', perm: 'dashboard:commercial' },
-  { to: '/admin/parametres', label: 'Paramètres', perm: 'settings:content' },
+  { to: '/admin/parametres', label: 'Paramètres', perm: ['settings:content', 'settings:sensitive', 'branding:write', 'stores:manage'] },
 ];
 const ROLE = { SUPER_ADMIN: 'Super administrateur', ADMIN: 'Administrateur', GESTIONNAIRE: 'Gestionnaire' };
 
@@ -33,19 +35,26 @@ export default function AdminLayout() {
   const { user, can, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const items = NAV.filter((n) => !n.perm || can(n.perm));
+  const settings = useSettings();
+  const items = NAV.filter((n) => !n.perm || [].concat(n.perm).some(can));
+  const logo = settings?.logoUrl;
+  const brand = logo
+    ? <img src={logo.replace('/upload/', '/upload/f_auto,q_auto,c_limit,h_64/')} alt={settings.companyName || 'Kira Tech'} className="h-8 w-auto max-w-[160px] object-contain" />
+    : <span className="font-extrabold text-[17px]" style={{ fontStretch: '125%' }}>KIRA TECH</span>;
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen">
-      <div className="lg:hidden flex items-center justify-between bg-ink text-paper px-4 py-3">
-        <Link to="/admin" className="!text-paper no-underline font-extrabold" style={{ fontStretch: '125%' }}>KIRA TECH</Link>
+    // Sur grand écran, le menu et le contenu défilent chacun de leur côté.
+    <div className="admin-frame flex flex-col lg:flex-row min-h-screen lg:h-dvh lg:overflow-hidden">
+      <div className="lg:hidden print:hidden sticky top-0 z-20 flex items-center justify-between bg-ink text-paper px-4 py-3">
+        <Link to="/admin" className="!text-paper no-underline">{brand}</Link>
         <button type="button" className="btn btn-ghost !bg-transparent !text-paper !border-ctl !px-0 w-11" aria-expanded={open} aria-controls="admin-nav"
           aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'} onClick={() => setOpen((o) => !o)}><Icon name={open ? 'x' : 'menu'} /></button>
       </div>
       <nav id="admin-nav" aria-label="Administration"
-        className={`${open ? 'flex' : 'hidden'} lg:flex flex-col gap-0.5 bg-ink px-3 py-5 lg:w-[240px] lg:shrink-0 lg:min-h-screen`}>
-        <div className="hidden lg:block px-3.5 pb-5 text-paper">
-          <div className="font-extrabold text-[17px]" style={{ fontStretch: '125%' }}>KIRA TECH</div>
+        className={`${open ? 'flex' : 'hidden'} lg:flex flex-col gap-0.5 bg-ink px-3 py-5 lg:w-[240px] lg:shrink-0 lg:h-full
+          max-h-[calc(100dvh-62px)] lg:max-h-none overflow-y-auto overscroll-contain admin-scroll print:hidden`}>
+        <div className="hidden lg:flex flex-col gap-1 px-3.5 pb-5 text-paper">
+          {brand}
           <div className="text-xs text-grey">Administration</div>
         </div>
         {items.map((n) => <NavLink key={n.to} to={n.to} end={n.end} className="side-link" onClick={() => setOpen(false)}>{n.label}</NavLink>)}
@@ -57,7 +66,7 @@ export default function AdminLayout() {
             onClick={async () => { await logout(); navigate('/admin/connexion'); }}>Se déconnecter</button>
         </div>
       </nav>
-      <main className="flex-1 min-w-0 px-4 py-6 md:px-8 md:py-7"><Outlet /></main>
+      <main className="flex-1 min-w-0 px-4 py-6 md:px-8 md:py-7 lg:overflow-y-auto lg:h-full admin-frame"><Outlet /></main>
     </div>
   );
 }

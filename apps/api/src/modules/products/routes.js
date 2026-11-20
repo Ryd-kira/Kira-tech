@@ -280,7 +280,7 @@ router.post('/:id/images', async (req, res) => {
   const { id } = parse(z.object({ id: z.uuid() }), req.params);
   const cfg = requireCloudinary();
   const data = parse(z.object({
-    publicId: z.string().max(255).refine(isOwnPublicId, 'Fichier non reconnu'),
+    publicId: z.string().max(255).refine((v) => isOwnPublicId(v), 'Fichier non reconnu'),
     version: z.number().int().positive(),
     format: z.enum(['jpg', 'jpeg', 'png', 'webp']),
     width: z.number().int().positive().max(20000),

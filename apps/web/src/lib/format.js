@@ -18,3 +18,6 @@ export const screenLabel = (inch) => (inch == null ? null : `${String(inch).repl
 
 // Texte saisi dans l'administration : un paragraphe par bloc séparé d'une ligne vide.
 export const paragraphs = (text) => (text ? text.split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean) : []);
+
+// Logo Cloudinary à la hauteur affichée (x2 pour les écrans haute densité).
+export const logoSrc = (url, height) => url.replace('/upload/', `/upload/f_auto,q_auto,c_limit,h_${height * 2}/`);

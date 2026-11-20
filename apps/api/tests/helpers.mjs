@@ -23,5 +23,5 @@ export async function loginAs(user, password = PASSWORD) {
   const res = await agent.post('/api/v1/admin/auth/login').set('Origin', ORIGIN).send({ email: user.email, password });
   if (res.status !== 200) throw new Error(`login ${res.status} ${JSON.stringify(res.body)}`);
   const wrap = (m) => (url) => agent[m](url).set('Origin', ORIGIN);
-  return { agent, get: wrap('get'), post: wrap('post'), patch: wrap('patch'), del: wrap('delete'), res };
+  return { agent, get: wrap('get'), post: wrap('post'), patch: wrap('patch'), put: wrap('put'), del: wrap('delete'), res };
 }

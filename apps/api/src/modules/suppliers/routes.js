@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { errors } from '../../lib/errors.js';
+import { errors, isReferenced } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
 import { requirePermission } from '../../middleware/auth.js';
@@ -42,6 +42,25 @@ router.patch('/:id', requirePermission('suppliers:write'), async (req, res) => {
     return next;
   });
   res.json(s);
+});
+
+// Suppression : seulement un fournisseur sans commande ni numéro de série. Sinon, désactivation.
+router.delete('/:id', requirePermission('suppliers:delete'), async (req, res) => {
+  const { id } = parse(z.object({ id: z.uuid() }), req.params);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const s = await tx.supplier.findUnique({ where: { id } });
+      if (!s) throw errors.notFound('Fournisseur');
+      await tx.supplier.delete({ where: { id } });
+      await writeAudit(tx, { adminUserId: req.admin.id, action: 'supplier.delete', entityType: 'Supplier', entityId: id, oldValues: { name: s.name }, ip: req.ip });
+    });
+  } catch (err) {
+    if (isReferenced(err)) {
+      throw errors.conflict('SUPPLIER_HAS_HISTORY', 'Ce fournisseur a des commandes enregistrées : il ne peut pas être supprimé. Marquez-le inactif.');
+    }
+    throw err;
+  }
+  res.status(204).end();
 });
 
 export default router;

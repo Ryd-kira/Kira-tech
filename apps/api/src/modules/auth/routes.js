@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
-import { permissionsOf } from '../../auth/permissions.js';
+import { ensurePermissionsFresh, permissionsOf } from '../../auth/permissions.js';
 import { AppError } from '../../lib/errors.js';
 import { DUMMY_HASH, hashPassword, passwordSchema, verifyPassword } from '../../lib/passwords.js';
 import { prisma } from '../../lib/prisma.js';
@@ -72,6 +72,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   await writeAudit(prisma, { adminUserId: user.id, action: 'auth.login', entityType: 'AdminUser', entityId: user.id, ip: req.ip });
 
   res.cookie(COOKIE_NAME, token, cookieOptions());
+  await ensurePermissionsFresh();
   res.json({ user: publicAdminView(user), permissions: permissionsOf(user.role) });
 });
 

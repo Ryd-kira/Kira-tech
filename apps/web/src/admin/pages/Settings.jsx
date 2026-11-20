@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { useApi } from '../../lib/useApi.js';
 import { ConfirmDialog, Field, fieldErrors, Notice, PageHeader } from '../ui.jsx';
+import { BrandingPanel, HomePanel, StoresPanel } from './SettingsBranding.jsx';
 
 const CONTENT = ['companyName', 'phone', 'email', 'openingHours', 'facebookUrl', 'instagramUrl', 'tiktokUrl'];
 const TEXTS = ['aboutText', 'servicesIntro'];
@@ -21,34 +22,6 @@ function Section({ title, subtitle, children, onSubmit, state, disabled, single 
       {state.error && !state.error.details && <Notice kind="error">{state.error.message}</Notice>}
       <fieldset disabled={disabled} className={`border-0 p-0 m-0 grid gap-4 ${single ? '' : 'sm:grid-cols-2'}`}>{children}</fieldset>
       {!disabled && <button type="submit" className="btn btn-primary self-start">Enregistrer</button>}
-    </form>
-  );
-}
-
-function LocationRow({ loc, onSaved }) {
-  const pick = (l) => ({ name: l.name, city: l.city ?? '', address: l.address ?? '', phone: l.phone ?? '', openingHours: l.openingHours ?? '' });
-  const [form, setForm] = useState(pick(loc));
-  const [state, setState] = useState({});
-  const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setState({}); };
-  async function save(e) {
-    e.preventDefault();
-    const body = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, k === 'name' ? v : v.trim() || null]));
-    try { await api(`/admin/settings/locations/${loc.id}`, { method: 'PATCH', body }); setState({ ok: true }); onSaved(); }
-    catch (error) { setState({ error }); }
-  }
-  const errs = fieldErrors(state.error);
-  return (
-    <form onSubmit={save} className="grid gap-3 sm:grid-cols-6 items-end border-t border-[#EEF1F5] pt-4">
-      <div className="sm:col-span-2"><Field label="Nom" error={errs.name}><input className="field" value={form.name} onChange={set('name')} /></Field></div>
-      <div className="sm:col-span-2"><Field label="Ville" error={errs.city}><input className="field" value={form.city} onChange={set('city')} /></Field></div>
-      <div className="sm:col-span-2"><Field label="Téléphone de la boutique" error={errs.phone}><input className="field" type="tel" value={form.phone} placeholder="+229 …" onChange={set('phone')} /></Field></div>
-      <div className="sm:col-span-3"><Field label="Adresse affichée sur le site" error={errs.address}><input className="field" value={form.address} placeholder="Quartier, rue, repère" onChange={set('address')} /></Field></div>
-      <div className="sm:col-span-3"><Field label="Horaires de la boutique" error={errs.openingHours} hint="Laisser vide pour utiliser les horaires généraux."><input className="field" value={form.openingHours} placeholder="Ex. Lundi au samedi, 9 h à 19 h" onChange={set('openingHours')} /></Field></div>
-      <div className="sm:col-span-6 flex items-center gap-3">
-        <button type="submit" className="btn btn-ghost">Enregistrer la boutique</button>
-        {state.ok && <span className="text-[13px] muted">Enregistré.</span>}
-        {state.error && !state.error.details && <span className="text-[13px] text-[#B42318]">{state.error.message}</span>}
-      </div>
     </form>
   );
 }
@@ -139,6 +112,7 @@ export default function Settings() {
   const [sState, setSState] = useState({});
   if (!data || !content || !texts || !sensitive) return <p className="muted">Chargement…</p>;
   const canSensitive = data.canEditSensitive;
+  const canContent = data.canEditContent;
 
   const submit = (form, setState, numeric = []) => async (e) => {
     e.preventDefault();
@@ -154,12 +128,15 @@ export default function Settings() {
       <input className="field" value={form[k] ?? ''} onChange={(e) => setForm({ ...form, [k]: e.target.value })} aria-invalid={!!errs[k]} {...props} hint={undefined} />
     </Field>
   );
-  const stores = data.locations.filter((l) => l.type !== 'TRANSIT');
 
   return (
     <div className="max-w-[900px] flex flex-col gap-5">
-      <PageHeader title="Paramètres" subtitle="Coordonnées, textes et prestations affichés sur le site, et règles commerciales. Les produits, leurs photos et leurs prix se gèrent dans Produits." />
-      <Section title="Coordonnées" subtitle="Affichées dans le pied de page et la page contact." onSubmit={submit(content, setCState)} state={cState}>
+      <PageHeader title="Paramètres" subtitle="Logo, accueil, coordonnées, boutiques, textes et prestations affichés sur le site, et règles commerciales. Les produits, leurs photos et leurs prix se gèrent dans Produits." />
+      <BrandingPanel settings={data.settings} canEdit={data.canEditBranding} onChange={retry} />
+
+      <HomePanel settings={data.settings} canEdit={canContent} onChange={retry} />
+
+      <Section title="Coordonnées" subtitle="Affichées dans le pied de page et la page contact." onSubmit={submit(content, setCState)} state={cState} disabled={!canContent}>
         {txt(content, setContent, ce, 'companyName', "Nom de l'entreprise")}
         {txt(content, setContent, ce, 'phone', 'Téléphone', { type: 'tel', placeholder: '+229 …' })}
         {txt(content, setContent, ce, 'email', 'E-mail', { type: 'email' })}
@@ -169,12 +146,9 @@ export default function Settings() {
         {txt(content, setContent, ce, 'tiktokUrl', 'TikTok', { type: 'url', placeholder: 'https://…' })}
       </Section>
 
-      <section className="panel p-5 flex flex-col gap-4">
-        <div><h2 className="text-lg">Boutiques et emplacements</h2><p className="muted m-0 text-sm mt-1">Les boutiques actives apparaissent sur le site avec leur adresse, leur téléphone et leurs horaires.</p></div>
-        {stores.map((l) => <LocationRow key={l.id} loc={l} onSaved={retry} />)}
-      </section>
+      <StoresPanel locations={data.locations} canContent={canContent} canBrand={data.canEditBranding} canStores={data.canManageStores} onChange={retry} />
 
-      <Section single title="Textes du site" subtitle="Rédigés par l'entreprise. Laissez une ligne vide entre deux paragraphes." onSubmit={submit(texts, setTState)} state={tState}>
+      <Section single title="Textes du site" subtitle="Rédigés par l'entreprise. Laissez une ligne vide entre deux paragraphes." onSubmit={submit(texts, setTState)} state={tState} disabled={!canContent}>
         <Field label="Présentation (page À propos)" error={te.aboutText} hint="Histoire, équipe, engagements, garanties.">
           <textarea className="field !min-h-[180px] !py-2.5" maxLength={6000} value={texts.aboutText ?? ''} onChange={(e) => setTexts({ ...texts, aboutText: e.target.value })} />
         </Field>
@@ -183,7 +157,7 @@ export default function Settings() {
         </Field>
       </Section>
 
-      <ServicesPanel services={data.services} onChange={retry} />
+      {canContent && <ServicesPanel services={data.services} onChange={retry} />}
 
       <Section title="Règles commerciales" subtitle={canSensitive ? 'Réservées au super administrateur.' : 'Consultables seulement : réservées au super administrateur.'}
         onSubmit={submit(sensitive, setSState, ['reservationDefaultHours', 'maxDiscountPercentAdmin', 'maxDiscountPercentManager'])} state={sState} disabled={!canSensitive}>

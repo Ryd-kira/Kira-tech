@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { useSettings } from '../lib/settings.jsx';
+import Brand from './Brand.jsx';
 
 const telHref = (phone) => `tel:${phone.replace(/[^0-9+]/g, '')}`;
 
@@ -20,7 +21,7 @@ export default function Footer() {
     <footer className="border-t border-line-soft mt-24">
       <div className="container-page py-12 grid gap-8 grid-cols-[repeat(auto-fit,minmax(220px,1fr))] text-[15px] text-grey">
         <div className="flex flex-col gap-2">
-          <span className="font-extrabold text-paper" style={{ fontStretch: '125%' }}>KIRA TECH et Solution</span>
+          <span className="text-paper"><Brand settings={settings} height={30} /></span>
           <span>Vente de matériel informatique, maintenance et réparation.</span>
           {settings?.phone && <a href={telHref(settings.phone)}>{settings.phone}</a>}
           {settings?.email && <a href={`mailto:${settings.email}`}>{settings.email}</a>}

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import Banner from '../components/Banner.jsx';
 import Icon from '../components/Icon.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import Seo from '../components/Seo.jsx';
+import Showcase from '../components/Showcase.jsx';
 import { CardSkeleton, ErrorState } from '../components/States.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import { toQuery } from '../lib/api.js';
@@ -48,27 +50,71 @@ function Finder() {
   );
 }
 
+const TITLE = 'Ordinateurs et matériel informatique à Cotonou et Calavi';
+const LEAD = "Portables, PC de bureau, PC gaming, composants et accessoires, neufs ou d'occasion. Maintenance et réparation dans nos deux boutiques.";
+
+function StoreNames({ stores }) {
+  if (stores.length === 0) return null;
+  return (
+    <div className="flex gap-7 flex-wrap text-[15px] text-grey">
+      {stores.map((s) => <span key={s.code} className="inline-flex gap-2 items-center"><Icon name="pin" size={18} />{s.name}</span>)}
+    </div>
+  );
+}
+
+// Accueil « classique » : accroche et recherche guidée côte à côte.
+function ClassicHero({ stores }) {
+  return (
+    <section className="container-page pt-12 md:pt-[72px] pb-16 flex flex-wrap gap-14 items-start">
+      <div className="flex-[1_1_460px] min-w-0 flex flex-col gap-6 md:pt-3">
+        <h1 className="text-[clamp(36px,5vw,61px)] !leading-[1.02]">{TITLE}</h1>
+        <p className="m-0 text-lg text-grey max-w-[52ch]">{LEAD}</p>
+        <StoreNames stores={stores} />
+      </div>
+      <Finder />
+    </section>
+  );
+}
+
+// Accueil « vitrine » : les ordinateurs mis en avant d'abord, la recherche guidée ensuite.
+function ShowcaseHero({ items, stores }) {
+  return (
+    <>
+      <section className="container-page pt-10 md:pt-14 pb-16 flex flex-col gap-8">
+        <div className="flex flex-wrap justify-between items-end gap-x-10 gap-y-4">
+          <div className="flex flex-col gap-3 max-w-[720px]">
+            <h1 className="text-[clamp(32px,4.2vw,52px)] !leading-[1.04]">{TITLE}</h1>
+            <p className="m-0 text-lg text-grey max-w-[60ch]">{LEAD}</p>
+          </div>
+          <StoreNames stores={stores} />
+        </div>
+        <Showcase items={items} />
+      </section>
+      <section className="container-page pb-16 flex"><Finder /></section>
+    </>
+  );
+}
+
 export default function Home() {
   const settings = useSettings();
   const { data: cats } = useApi('/public/categories');
   const recent = useApi('/public/products?limit=4&sort=new');
+  const wantsShowcase = settings?.homeLayout === 'SHOWCASE';
+  const showcase = useApi(wantsShowcase ? '/public/showcase' : null);
   const stores = settings?.stores ?? [];
+  // Moins de 2 ordinateurs mis en avant : la vitrine n'a pas de sens, l'accueil classique s'affiche.
+  const items = showcase.data?.items ?? [];
+  let layout = 'classic';
+  if (!settings || (wantsShowcase && !showcase.data && !showcase.error)) layout = 'pending';
+  else if (wantsShowcase && items.length >= 2) layout = 'showcase';
 
   return (
     <>
       <Seo description="Ordinateurs portables, PC de bureau, PC gaming, composants et accessoires, neufs ou d'occasion, à Cotonou et Calavi. Maintenance et réparation." />
-      <section className="container-page pt-12 md:pt-[72px] pb-16 flex flex-wrap gap-14 items-start">
-        <div className="flex-[1_1_460px] min-w-0 flex flex-col gap-6 md:pt-3">
-          <h1 className="text-[clamp(36px,5vw,61px)] !leading-[1.02]">Ordinateurs et matériel informatique à Cotonou et Calavi</h1>
-          <p className="m-0 text-lg text-grey max-w-[52ch]">Portables, PC de bureau, PC gaming, composants et accessoires, neufs ou d'occasion. Maintenance et réparation dans nos deux boutiques.</p>
-          {stores.length > 0 && (
-            <div className="flex gap-7 flex-wrap text-[15px] text-grey">
-              {stores.map((s) => <span key={s.code} className="inline-flex gap-2 items-center"><Icon name="pin" size={18} />{s.name}</span>)}
-            </div>
-          )}
-        </div>
-        <Finder />
-      </section>
+      <Banner />
+      {layout === 'classic' && <ClassicHero stores={stores} />}
+      {layout === 'showcase' && <ShowcaseHero items={items} stores={stores} />}
+      {layout === 'pending' && <div aria-hidden="true" className="container-page pt-12 pb-16 min-h-[420px]" />}
 
       {cats?.items.length > 0 && (
         <section aria-label="Catégories" className="container-page">

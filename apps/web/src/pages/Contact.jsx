@@ -5,6 +5,7 @@ import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import { api } from '../lib/api.js';
 import { useSettings } from '../lib/settings.jsx';
 import { StoreLines } from '../components/Footer.jsx';
+import { logoSrc } from '../lib/format.js';
 
 export function StoresSection({ className = '' }) {
   const settings = useSettings();
@@ -16,6 +17,9 @@ export function StoresSection({ className = '' }) {
       <div className="grid gap-5 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
         {stores.map((s) => (
           <div key={s.code} className="border border-line rounded-[10px] p-6 flex flex-col gap-2 text-grey">
+            {(s.logoUrl || settings.logoUrl) && (
+              <img src={logoSrc(s.logoUrl || settings.logoUrl, 40)} alt="" className="h-10 w-auto max-w-[180px] object-contain self-start mb-2" loading="lazy" />
+            )}
             <h3 className="text-xl text-paper">{s.city || s.name}</h3>
             <StoreLines store={s} settings={settings} />
           </div>

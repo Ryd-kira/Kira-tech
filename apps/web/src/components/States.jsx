@@ -25,10 +25,10 @@ export function CardSkeleton() {
     <div aria-hidden="true" className="rounded-[10px] border border-line bg-night overflow-hidden">
       <div className="aspect-[4/3] bg-ink-2" />
       <div className="p-4 flex flex-col gap-3">
-        <div className="h-3 w-1/3 rounded bg-line" />
         <div className="h-4 w-3/4 rounded bg-line" />
         <div className="h-16 rounded bg-ink-2" />
-        <div className="h-10 rounded bg-ink-2" />
+        <div className="h-5 w-1/2 rounded bg-line" />
+        <div className="h-11 rounded bg-ink-2" />
       </div>
     </div>
   );

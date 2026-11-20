@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { useSettings } from '../lib/settings.jsx';
 import { whatsappUrl } from '../lib/whatsapp.js';
+import Brand from './Brand.jsx';
 import Icon from './Icon.jsx';
 
 const LINKS = [['/catalogue', 'Catalogue'], ['/services', 'Services'], ['/a-propos', 'À propos'], ['/contact', 'Contact']];
@@ -20,9 +21,8 @@ export default function Header() {
     <header className="border-b border-line-soft">
       <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-ink focus:p-2">Aller au contenu</a>
       <div className="container-page py-3.5 flex items-center gap-8">
-        <Link to="/" className="text-paper no-underline flex items-baseline gap-1.5 mr-auto md:mr-0">
-          <span className="font-extrabold text-xl" style={{ fontStretch: '125%' }}>KIRA TECH</span>
-          <span className="text-[13px] text-grey">et Solution</span>
+        <Link to="/" className="text-paper no-underline flex items-center mr-auto md:mr-0" aria-label="Accueil">
+          <Brand settings={settings} height={34} />
         </Link>
         <nav aria-label="Navigation principale" className="hidden md:flex gap-6 flex-1">
           {LINKS.map(([to, label]) => <NavLink key={to} to={to} className={navClass}>{label}</NavLink>)}

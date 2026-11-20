@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../../lib/api.js';
 import { formatFCFA } from '../../lib/format.js';
 import { useApi } from '../../lib/useApi.js';
@@ -172,15 +172,74 @@ export function Customers() {
   );
 }
 
+const CUSTOMER_FIELDS = [['name', 'Nom'], ['phone', 'Téléphone'], ['email', 'E-mail (facultatif)'], ['city', 'Ville'], ['district', 'Quartier'], ['address', 'Adresse'], ['notes', 'Notes internes']];
+
+function CustomerEdit({ customer, onSaved, onCancel }) {
+  const [form, setForm] = useState(Object.fromEntries(CUSTOMER_FIELDS.map(([k]) => [k, customer[k] ?? ''])));
+  const [error, setError] = useState(null);
+  const errs = fieldErrors(error);
+  async function submit(e) {
+    e.preventDefault(); setError(null);
+    const body = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, ['name', 'phone'].includes(k) ? v : v.trim() || null]));
+    try { await api(`/admin/customers/${customer.id}`, { method: 'PATCH', body }); onSaved(); } catch (err) { setError(err); }
+  }
+  return (
+    <form onSubmit={submit} className="panel p-5 grid gap-3 sm:grid-cols-2">
+      <h2 className="text-lg sm:col-span-2">Modifier les informations</h2>
+      {error && !error.details && <div className="sm:col-span-2"><Notice kind="error">{error.message}</Notice></div>}
+      {CUSTOMER_FIELDS.map(([k, l]) => (
+        <div key={k} className={k === 'notes' || k === 'address' ? 'sm:col-span-2' : ''}>
+          <Field label={l} error={errs[k]}><input className="field" value={form[k]} type={k === 'email' ? 'email' : k === 'phone' ? 'tel' : 'text'} onChange={(e) => setForm({ ...form, [k]: e.target.value })} aria-invalid={!!errs[k]} /></Field>
+        </div>
+      ))}
+      <div className="flex gap-2"><button type="submit" className="btn btn-primary">Enregistrer</button><button type="button" className="btn btn-ghost" onClick={onCancel}>Annuler</button></div>
+    </form>
+  );
+}
+
 export function CustomerDetail() {
   const { id } = useParams();
-  const { data: c, error } = useApi(`/admin/customers/${id}`);
+  const navigate = useNavigate();
+  const { can } = useAuth();
+  const { data: c, error, retry } = useApi(`/admin/customers/${id}`);
+  const [editing, setEditing] = useState(false);
+  const [confirm, setConfirm] = useState(null); // 'delete' | 'anonymize'
+  const [action, setAction] = useState({});
   if (error) return <Notice kind="error">{error.message}</Notice>;
   if (!c) return <p className="muted">Chargement…</p>;
   const bal = (sid) => c.balances.find((b) => b.saleId === sid);
+  const hasHistory = c.sales.length > 0 || c.reservations.length > 0;
+  async function run() {
+    setAction({ busy: true });
+    try {
+      if (confirm === 'delete') { await api(`/admin/customers/${c.id}`, { method: 'DELETE' }); navigate('/admin/clients'); return; }
+      await api(`/admin/customers/${c.id}/anonymize`, { method: 'POST' });
+      setAction({ ok: 'Client anonymisé : ses coordonnées sont effacées, ses achats restent dans l’historique.' }); retry();
+    } catch (err) { setAction({ error: err }); }
+    setConfirm(null);
+  }
   return (
     <div className="max-w-[1000px] flex flex-col gap-4">
-      <PageHeader title={c.name} subtitle={`${c.phone}${c.email ? `, ${c.email}` : ''}${c.city ? `, ${[c.district, c.city].filter(Boolean).join(', ')}` : ''}`} />
+      <PageHeader title={c.name} subtitle={`${c.phone}${c.email ? `, ${c.email}` : ''}${c.city ? `, ${[c.district, c.city].filter(Boolean).join(', ')}` : ''}`}
+        actions={!editing && (
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setEditing(true)}>Modifier</button>
+            {can('customers:delete') && (hasHistory
+              ? <button type="button" className="btn btn-danger" onClick={() => setConfirm('anonymize')}>Anonymiser</button>
+              : <button type="button" className="btn btn-danger" onClick={() => setConfirm('delete')}>Supprimer</button>)}
+          </>
+        )} />
+      {action.ok && <Notice kind="success">{action.ok}</Notice>}
+      {action.error && <Notice kind="error">{action.error.message}</Notice>}
+      {editing && <CustomerEdit customer={c} onSaved={() => { setEditing(false); retry(); }} onCancel={() => setEditing(false)} />}
+      <ConfirmDialog open={!!confirm} busy={action.busy}
+        title={confirm === 'delete' ? `Supprimer le client « ${c.name} » ?` : `Anonymiser le client « ${c.name} » ?`}
+        confirmLabel={confirm === 'delete' ? 'Supprimer le client' : 'Anonymiser le client'}
+        onCancel={() => setConfirm(null)} onConfirm={run}>
+        {confirm === 'delete'
+          ? 'Le client n’a ni achat ni réservation : sa fiche est supprimée définitivement.'
+          : 'Ce client a un historique d’achats. Son nom, son téléphone, son e-mail, son adresse et ses notes sont effacés définitivement ; les ventes et paiements restent enregistrés. Utile quand un client demande la suppression de ses données.'}
+      </ConfirmDialog>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="panel p-5"><div className="num text-[28px] font-bold" style={{ fontStretch: '112%' }}>{c.sales.filter((s) => s.status === 'VALIDATED').length}</div><div className="muted text-sm">Achats</div></div>
         <div className="panel p-5"><div className="num text-[28px] font-bold" style={{ fontStretch: '112%' }}>{formatFCFA(c.balances.reduce((a, b) => a + b.collected - b.refunded, 0))}</div><div className="muted text-sm">Payé (net des remboursements)</div></div>

@@ -6,7 +6,7 @@ import { env } from '../../config/env.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
-import { productCardView, productDetailView } from './dto.js';
+import { imageView, productCardView, productDetailView, showcaseView } from './dto.js';
 
 // Tranches de budget du filtre public (FCFA). Modifiables ici sans toucher au frontend.
 export const BUDGET_BANDS = [
@@ -119,6 +119,20 @@ router.get('/products/:slug', async (req, res) => {
   });
 });
 
+// Vitrine de l'accueil : jusqu'à 4 produits « mis en avant », avec un court texte.
+router.get('/showcase', async (req, res) => {
+  const [products, settings] = await Promise.all([
+    prisma.product.findMany({
+      where: { status: 'PUBLISHED', isFeatured: true },
+      orderBy: { updatedAt: 'desc' }, take: 4,
+      include: { ...PRODUCT_INCLUDE, images: { orderBy: { sortOrder: 'asc' }, take: 1 } },
+    }),
+    loadSettings(),
+  ]);
+  const statuses = await stockStatuses(products.map((p) => p.id));
+  res.json({ items: products.map((p) => showcaseView(p, statuses.get(p.id), settings)) });
+});
+
 router.get('/filters', async (req, res) => {
   const published = { status: 'PUBLISHED' };
   const [categories, usages, rams, storages] = await Promise.all([
@@ -152,7 +166,7 @@ router.get('/settings', async (req, res) => {
     loadSettings(),
     prisma.stockLocation.findMany({
       where: { type: 'STORE', isActive: true }, orderBy: { code: 'desc' },
-      select: { code: true, name: true, city: true, address: true, phone: true, openingHours: true },
+      select: { code: true, name: true, city: true, address: true, phone: true, openingHours: true, logoUrl: true },
     }),
     prisma.siteService.findMany({
       where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], select: { title: true, description: true, icon: true },
@@ -162,6 +176,13 @@ router.get('/settings', async (req, res) => {
     companyName: s.companyName, whatsappNumber: s.whatsappNumber, phone: s.phone, email: s.email,
     openingHours: s.openingHours, facebookUrl: s.facebookUrl, instagramUrl: s.instagramUrl, tiktokUrl: s.tiktokUrl,
     aboutText: s.aboutText, servicesIntro: s.servicesIntro,
+    logoUrl: s.chainLogoUrl,
+    homeLayout: s.homeLayout,
+    // Bannière : absente tant qu'elle n'est pas activée.
+    banner: s.bannerEnabled ? {
+      title: s.bannerTitle, text: s.bannerText, ctaLabel: s.bannerCtaLabel, ctaUrl: s.bannerCtaUrl,
+      image: s.bannerImageUrl ? imageView({ url: s.bannerImageUrl, width: s.bannerImageWidth, height: s.bannerImageHeight, alt: '' }, 1600) : null,
+    } : null,
     stores, services,
   });
 });

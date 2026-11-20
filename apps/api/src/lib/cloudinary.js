@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 
 // Intégration Cloudinary sans SDK : signature des envois et suppression, côté serveur uniquement.
 // Le secret ne quitte jamais l'API.
-const FOLDER = 'kira-tech/products';
+// Un dossier par usage : photos produits, et identité visuelle (logos, bannière).
+export const FOLDERS = { products: 'kira-tech/products', branding: 'kira-tech/branding' };
+const FOLDER = FOLDERS.products;
 
 export function cloudinaryConfig() {
   const { CLOUDINARY_CLOUD_NAME: cloudName, CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: apiSecret } = process.env;
@@ -17,9 +19,9 @@ export function sign(params, apiSecret) {
   return createHash('sha1').update(payload + apiSecret).digest('hex');
 }
 
-export function uploadSignature(cfg, now = Date.now()) {
+export function uploadSignature(cfg, now = Date.now(), folder = FOLDER) {
   const params = {
-    folder: FOLDER,
+    folder,
     timestamp: Math.floor(now / 1000),
     allowed_formats: 'jpg,jpeg,png,webp',
   };
@@ -32,8 +34,8 @@ export function uploadSignature(cfg, now = Date.now()) {
 }
 
 // Seuls les fichiers déposés dans notre dossier peuvent être rattachés à un produit.
-export const isOwnPublicId = (publicId) =>
-  typeof publicId === 'string' && publicId.startsWith(`${FOLDER}/`) && /^[A-Za-z0-9/_-]+$/.test(publicId) && !publicId.includes('..');
+export const isOwnPublicId = (publicId, folder = FOLDER) =>
+  typeof publicId === 'string' && publicId.startsWith(`${folder}/`) && /^[A-Za-z0-9/_-]+$/.test(publicId) && !publicId.includes('..');
 
 export const deliveryUrl = (cfg, publicId, version, format) =>
   `https://res.cloudinary.com/${cfg.cloudName}/image/upload/v${version}/${publicId}.${format}`;

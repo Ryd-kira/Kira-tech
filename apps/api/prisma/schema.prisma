@@ -229,6 +229,7 @@ model AdminUser {
   fulfillmentEvents   FulfillmentEvent[]   @relation("FulfillmentEventBy")
   receivedReturns     Return[]             @relation("ReturnReceivedBy")
   idempotencyKeys     IdempotencyKey[]     @relation("IdemKeyOwner")
+  rolePermissions     RolePermission[]     @relation("RolePermissionUpdatedBy")
 
   @@map("admin_users")
 }
@@ -291,6 +292,22 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// Permissions ajustées par le super administrateur : seuls les écarts par rapport
+// aux valeurs par défaut (src/auth/permissions.js) sont enregistrés. Jamais pour SUPER_ADMIN.
+model RolePermission {
+  role        AdminRole
+  permission  String
+  granted     Boolean
+  updatedById String    @db.Uuid
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  updatedBy AdminUser @relation("RolePermissionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@id([role, permission])
+  @@index([updatedById])
+  @@map("role_permissions")
+}
+
 // Anti double soumission : chaque POST commercial porte un en-tête Idempotency-Key.
 model IdempotencyKey {
   adminUserId    String   @db.Uuid
@@ -341,6 +358,20 @@ model SiteSetting {
   allowBackorder            Boolean            @default(false) // vente au-delà du stock : désactivée
   maxDiscountPercentAdmin   Int                @default(10)
   maxDiscountPercentManager Int                @default(0)
+  // Identité de la chaîne : logo général (Cloudinary, dossier kira-tech/branding).
+  chainLogoUrl              String?
+  chainLogoPublicId         String?
+  // Accueil : mise en page et bannière modifiables depuis l'administration.
+  homeLayout                HomeLayout         @default(CLASSIC)
+  bannerEnabled             Boolean            @default(false)
+  bannerTitle               String?
+  bannerText                String?
+  bannerCtaLabel            String?
+  bannerCtaUrl              String? // chemin du site (/catalogue…) ou lien https
+  bannerImageUrl            String?
+  bannerImagePublicId       String?
+  bannerImageWidth          Int?
+  bannerImageHeight         Int?
   updatedAt                 DateTime           @updatedAt @db.Timestamptz(3)
 
   @@map("site_settings")
@@ -555,6 +586,8 @@ model StockLocation {
   address      String?
   phone        String?
   openingHours String? // vide : les horaires généraux s'appliquent
+  logoUrl      String? // logo propre à la boutique ; vide : logo de la chaîne
+  logoPublicId String?
   isSellable   Boolean      @default(true) // TRANSIT et entrepôt : false
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now()) @db.Timestamptz(3)
@@ -1153,6 +1186,11 @@ model StatusChange {
   @@index([returnId])
   @@index([adminUserId])
   @@map("status_changes")
+}
+
+enum HomeLayout {
+  CLASSIC // accroche + recherche guidée
+  SHOWCASE // vitrine : 2 à 4 ordinateurs mis en avant, avec texte
 }
 
 enum ServiceIcon {

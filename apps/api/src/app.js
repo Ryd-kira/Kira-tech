@@ -30,6 +30,7 @@ import returnRoutes from './modules/returns/routes.js';
 import dashboardRoutes from './modules/dashboard/routes.js';
 import reportRoutes from './modules/reports/routes.js';
 import auditRoutes from './modules/audit/routes.js';
+import roleRoutes from './modules/roles/routes.js';
 
 export function createApp() {
   const app = express();
@@ -78,6 +79,7 @@ export function createApp() {
   api.use('/admin/dashboard', dashboardRoutes);
   api.use('/admin/reports', reportRoutes);
   api.use('/admin/audit-logs', auditRoutes);
+  api.use('/admin/roles', roleRoutes);
   app.use('/api/v1', api);
 
   app.use(notFound);
