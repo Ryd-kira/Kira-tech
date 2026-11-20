@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/sitemap.xml", "destination": "https://api.VOTRE-DOMAINE.bj/api/v1/public/sitemap.xml" },
+    { "source": "/api/:path*", "destination": "https://kira-tech-api.vercel.app/api/:path*" },
+    { "source": "/sitemap.xml", "destination": "https://kira-tech-api.vercel.app/api/v1/public/sitemap.xml" },
     { "source": "/((?!assets/|favicon.svg|robots.txt).*)", "destination": "/index.html" }
   ],
   "headers": [
